@@ -1,0 +1,25 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Userテーブル（ユーザー情報を保存する場所）の設計
+model User {
+  id      Int    @id @default(autoincrement()) // ユーザーごとの番号（自動で増える）
+  name    String // ユーザー名（必須）
+  iconFileName String // アイコン画像のファイル名（必須）
+  password String // パスワード（必須）
+  entered Boolean @default(false) // 入室状態
+  enteredAt DateTime? // 入室時刻（追加）
+}
