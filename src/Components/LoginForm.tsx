@@ -1,0 +1,85 @@
+"use client";
+import { useRouter } from "next/navigation";
+import type { User } from "@/types/declaration";
+import { useState } from "react";
+
+const API_BASE_URL = process.env.VITE_API_BASE_URL;
+
+const inputStyle = {
+  fontSize: 18,
+  padding: 12,
+  borderRadius: 8,
+  border: "1px solid #ccc",
+  width: "100%",
+  boxSizing: "border-box" as const,
+};
+
+export default function LoginForm({ onLogin }: { onLogin: (user: User) => void }) {
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    const res = await fetch(`${API_BASE_URL}/users/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), password: password.trim() }),
+    });
+    if (res.ok) {
+      const { user, token } = await res.json();
+      localStorage.setItem("token", token);
+      onLogin(user);
+      router.push("/home");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "ユーザー名またはパスワードが違います");
+    }
+  };
+
+  return (
+    <div style={{ padding: 24, maxWidth: 400, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", background: "#f7f7f7" }}>
+      <h2 style={{ textAlign: "center", marginBottom: 32 }}>ログイン</h2>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="ユーザー名"
+        style={{ ...inputStyle, marginBottom: 16 }}
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="パスワード"
+        style={{ ...inputStyle, marginBottom: 24 }}
+      />
+      <button
+        onClick={handleLogin}
+        style={{
+          fontSize: 18,
+          padding: 12,
+          borderRadius: 8,
+          background: "#7bc062", // 緑色
+          color: "#fff",
+          border: "none",
+          marginBottom: 12,
+        }}
+      >
+        ログイン
+      </button>
+      <button
+        onClick={() => router.push("/register")}
+        style={{
+          fontSize: 16,
+          padding: 10,
+          borderRadius: 8,
+          background: "#fff",
+          color: "#7bc062", // 緑色
+          border: "1px solid #7bc062", // 緑色
+        }}
+      >
+        新規登録
+      </button>
+    </div>
+  );
+}
