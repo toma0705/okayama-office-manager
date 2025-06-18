@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/declaration";
 
-const API_BASE_URL = process.env.VITE_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const noSelectStyle = {
   userSelect: 'none' as const,

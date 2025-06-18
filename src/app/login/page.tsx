@@ -12,7 +12,7 @@ export default async function LoginPage() {
 
   return (
     <div>
-      <LoginForm onLogin={() => { /* handle login, e.g., redirect or set cookie */ }} />
+      <LoginForm />
     </div>
   );
 }

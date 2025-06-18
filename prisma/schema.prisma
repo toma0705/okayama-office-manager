@@ -20,6 +20,14 @@ model User {
   name    String // ユーザー名（必須）
   iconFileName String // アイコン画像のファイル名（必須）
   password String // パスワード（必須）
-  entered Boolean @default(false) // 入室状態
-  enteredAt DateTime? // 入室時刻（追加）
+  enters  Enter[] // ユーザーの入退室履歴（リレーション）
+}
+
+// 入退室履歴テーブル（ユーザーの入退室を記録）
+model Enter {
+  id        Int      @id @default(autoincrement()) // 履歴ごとの番号
+  user      User     @relation(fields: [userId], references: [id]) // Userとのリレーション
+  userId    Int      // UserのID
+  enteredAt DateTime // 入室時刻
+  exitAt    DateTime? // 退室時刻（nullならまだ退室していない）
 }
