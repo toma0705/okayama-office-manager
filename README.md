@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Office Manager Next.js アプリ
 
-## Getting Started
+このリポジトリは Next.js + Prisma + JWT認証によるオフィス管理アプリです。
 
-First, run the development server:
+## 動作環境
+- Node.js 18以上推奨
+- macOS/Windows/Linux対応
+
+## セットアップ手順
+
+1. **リポジトリをクローン**
+
+```bash
+git clone <このリポジトリのURL>
+cd office-manager-next
+```
+
+2. **依存パッケージをインストール**
+
+```bash
+npm install
+```
+
+3. **環境変数ファイルを作成**
+
+`.env` ファイルをプロジェクトルートに作成し、下記を参考に設定してください。
+
+```
+NEXT_PUBLIC_API_URL=http://192.168.2.103:3000/api
+DATABASE_URL="file:./dev.db"
+```
+- `NEXT_PUBLIC_API_URL` はLANアクセス時は `http://<あなたのIPアドレス>:3000/api` などに変更してください。
+
+4. **PrismaのDBマイグレーション（初回のみ）**
+
+```bash
+npx prisma migrate dev --name init
+```
+
+5. **Prisma Clientの生成（必要に応じて）**
+
+Prismaのスキーマやマイグレーションを変更した場合は、下記コマンドでPrisma Clientを再生成してください。
+
+```bash
+npx prisma generate
+```
+
+6. **開発サーバーを起動**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+7. **アプリにアクセス**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [http://<あなたのIPアドレス>:3000](http://<あなたのIPアドレス>:3000) でアクセスできます。
+- 他端末からアクセスする場合も `http://<あなたのIPアドレス>:3000` でアクセスしてください。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 注意事項
+- 画像アップロードは `public/uploads/` ディレクトリに保存されます（初回アップロード時に自動生成されます）。
+- `prisma/dev.db` などのDBファイルは `.gitignore` で管理対象外です。
+- 本番運用時は `.env` の値やDBのバックアップ等にご注意ください。
 
-## Learn More
+## Prisma Studio
+Prisma Studioは、Prismaを使用しているプロジェクトのためのビジュアルデータブラウザです。次のコマンドで起動できます。
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx prisma studio
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+これにより、ブラウザでデータベースの内容を視覚的に確認・編集できるインターフェースが開きます。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
