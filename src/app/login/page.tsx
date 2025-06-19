@@ -7,7 +7,7 @@ export default async function LoginPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("token");
   if (token) {
-    redirect("/home");
+    redirect("/");
   }
 
   return (

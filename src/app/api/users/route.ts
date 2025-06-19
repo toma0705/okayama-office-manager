@@ -1,58 +1,62 @@
-export const runtime = "nodejs";
 // GET, POST /api/users
+export const runtime = "nodejs";
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { writeFile } from 'fs/promises';
+import { PrismaClient } from '@/generated/prisma/client';
+import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import fs from 'fs';
 
 const prisma = new PrismaClient();
 
 // ユーザー一覧取得API
 export async function GET() {
-  // DBから全ユーザーを取得し、JSONで返す
-  const users = await prisma.user.findMany({
-    include: { enters: true }, // 入退室履歴も含めて返す
-  });
-  return NextResponse.json(users);
+  try {
+    const users = await prisma.user.findMany({
+      include: { enters: true },
+    });
+    return NextResponse.json(users);
+  } catch {
+    return NextResponse.json({ error: 'ユーザー一覧取得に失敗しました' }, { status: 500 });
+  }
 }
 
 // ユーザー新規登録API（画像アップロード対応）
 export async function POST(req: NextRequest) {
-  // multipart/form-dataで送信されたフォームデータを取得
-  const formData = await req.formData();
-  // フォームからname, password, icon(画像)を取得
-  const name = formData.get('name')?.toString();
-  const password = formData.get('password')?.toString();
-  const icon = formData.get('icon') as File;
+  try {
+    const formData = await req.formData();
+    const name = formData.get('name')?.toString();
+    const password = formData.get('password')?.toString();
+    const icon = formData.get('icon');
 
-  // 必須項目がなければエラーを返す
-  if (!name || !password || !icon) {
-    return NextResponse.json({ error: 'name, password, icon 必須' }, { status: 400 });
+    if (!name || !password || !icon || !(icon instanceof File)) {
+      return NextResponse.json({ error: 'name, password, icon 必須' }, { status: 400 });
+    }
+
+    // uploadsディレクトリがなければ作成
+    const uploadDir = path.join(process.cwd(), 'public/uploads');
+    if (!fs.existsSync(uploadDir)) {
+      await mkdir(uploadDir, { recursive: true });
+    }
+
+    const bytes = await icon.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const fileName = `${Date.now()}-${icon.name}`;
+    const filePath = path.join(uploadDir, fileName);
+    await writeFile(filePath, buffer);
+
+    // パスワードをハッシュ化せず、そのまま保存
+    const user = await prisma.user.create({
+      data: {
+        name,
+        password, // ハッシュ化せず保存
+        iconFileName: fileName,
+      },
+      include: {
+        enters: true,
+      },
+    });
+    return NextResponse.json(user, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'ユーザー登録に失敗しました' }, { status: 500 });
   }
-
-  // 画像ファイルをバイナリデータとして取得
-  const bytes = await icon.arrayBuffer();
-  // バイナリデータをNode.jsのBufferに変換
-  const buffer = Buffer.from(bytes);
-  // 保存するファイル名を生成（重複防止のためタイムスタンプ付与）
-  const fileName = `${Date.now()}-${icon.name}`;
-  // 保存先のパスを生成
-  const filePath = path.join(process.cwd(), 'public/uploads', fileName);
-  // 画像ファイルをサーバーのpublic/uploadsに保存
-  await writeFile(filePath, buffer);
-
-  // DBに新しいユーザーを作成（画像ファイル名も保存）
-  const user = await prisma.user.create({
-    data: {
-      name,
-      password,
-      iconFileName: fileName,
-    },
-    include: {
-      enters: true, // ユーザー作成時に入退室履歴も返す（空配列）
-    },
-  });
-
-  // 作成したユーザー情報を返す
-  return NextResponse.json(user, { status: 201 });
 }

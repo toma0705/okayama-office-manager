@@ -1,6 +1,6 @@
 // POST /api/users/login
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/generated/prisma/client';
 import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();

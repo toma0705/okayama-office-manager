@@ -1,9 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
-import type { User } from "@/types/declaration";
 import { useState } from "react";
 
-const API_BASE_URL = process.env.VITE_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const inputStyle = {
   fontSize: 18,
@@ -14,7 +13,7 @@ const inputStyle = {
   boxSizing: "border-box" as const,
 };
 
-export default function LoginForm({ onLogin }: { onLogin: (user: User) => void }) {
+export default function LoginForm() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
@@ -26,10 +25,9 @@ export default function LoginForm({ onLogin }: { onLogin: (user: User) => void }
       body: JSON.stringify({ name: name.trim(), password: password.trim() }),
     });
     if (res.ok) {
-      const { user, token } = await res.json();
+      const { token } = await res.json();
       localStorage.setItem("token", token);
-      onLogin(user);
-      router.push("/home");
+      router.push("/");
     } else {
       const err = await res.json().catch(() => ({}));
       alert(err.error || "ユーザー名またはパスワードが違います");

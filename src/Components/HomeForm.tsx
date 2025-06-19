@@ -1,7 +1,7 @@
 "use client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/declaration";
+import { redirect } from "next/navigation";
 
 //const API_BASE_URL = process.env.VITE_API_BASE_URL;
 
@@ -35,12 +35,7 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
     router.push("/login");
   };
 
-  if (!user) return (
-    <>
-    <div>ログインしてください</div>
-    <Link href="/login">ログインページへ</Link>
-    </>
-  );
+  if (!user) redirect("/login");
 
   return (
     <div
