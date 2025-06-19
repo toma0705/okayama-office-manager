@@ -36,7 +36,6 @@ export default function LoginForm() {
 
   return (
     <div style={{ padding: 24, maxWidth: 400, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", background: "#f7f7f7" }}>
-      <h2 style={{ textAlign: "center", marginBottom: 32 }}>ログイン</h2>
       <input
         type="text"
         value={name}

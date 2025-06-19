@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/declaration";
+import Image from "next/image";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -145,13 +146,20 @@ export default function Register({ onBack }: { onBack: () => void }) {
               onContextMenu={e => e.preventDefault()}
               draggable={false}
             >
-              {/* <img
-                src={`${API_BASE_URL}/uploads/${u.iconFileName}`}
+              <Image
+                src={u.iconFileName ? `/uploads/${u.iconFileName}` : "/file.svg"}
                 alt={u.name}
                 width={40}
                 height={40}
-                style={{ verticalAlign: "middle", marginRight: 12, borderRadius: 20, objectFit: "cover", background: "#eee", ...noSelectStyle }}
-              /> */}
+                style={{
+                  verticalAlign: "middle",
+                  marginRight: 12,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  background: "#eee",
+                  ...noSelectStyle,
+                }}
+              />
               <span
                 onContextMenu={e => e.preventDefault()}
                 style={{ fontSize: 18, ...noSelectStyle }}
@@ -212,20 +220,21 @@ export default function Register({ onBack }: { onBack: () => void }) {
         {/* 画像プレビュー表示 */}
         {iconFile && (
           <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
-            {/* <img
-              src={iconPreviewUrl!}
+            <Image
+              src={iconPreviewUrl || "/file.svg"}
               alt="icon preview"
               width={80}
               height={80}
               style={{
-                borderRadius: 40,
+                borderRadius: "50%",
                 objectFit: "cover",
                 background: "#eee",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                 border: "2px solid #7bc062",
-                display: "block"
+                display: "block",
+                aspectRatio: "1 / 1",
               }}
-            /> */}
+            />
           </div>
         )}
       </label>
