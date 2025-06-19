@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
     }
     // 入室中ユーザー一覧も返す例（必要に応じて）
-    const enteredUsers = await prisma.user.findMany({
+    const enteredUsersRaw = await prisma.user.findMany({
       where: {
         enters: {
           some: {
@@ -30,7 +30,21 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      include: {
+        enters: {
+          where: { exitAt: null },
+          orderBy: { enteredAt: 'desc' },
+          take: 1,
+        },
+      },
     });
+    // User[]型にenteredAtを付与して返す
+    const enteredUsers = enteredUsersRaw.map(u => ({
+      id: u.id,
+      name: u.name,
+      iconFileName: u.iconFileName,
+      enteredAt: u.enters[0]?.enteredAt ?? null,
+    }));
     return NextResponse.json({ user, enteredUsers });
   } catch {
     return NextResponse.json({ error: '認証エラー' }, { status: 401 });

@@ -1,9 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/declaration";
-import { redirect } from "next/navigation";
-
-//const API_BASE_URL = process.env.VITE_API_BASE_URL;
+import Image from "next/image";
 
 type Props = {
   user: User | null;
@@ -25,17 +23,13 @@ const enterExitButtonStyle = {
 export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers }: Props) {
    const router = useRouter();
 
-  const handleEnter = () => {
-    onEnter(); // サーバー側でenteredAtを管理するため、ここで時刻を持つ必要はない
-  };
+  const handleEnter = () => onEnter(); 
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     onExit();
     router.push("/login");
   };
-
-  if (!user) redirect("/login");
 
   return (
     <div
@@ -70,8 +64,6 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
         ログアウト
       </button>
 
-      <h2 style={{ textAlign: "center", marginBottom: 32 }}>ホーム</h2>
-
       <div
         style={{
           height: 56,
@@ -104,18 +96,33 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
           marginBottom: 24,
           minHeight: 112,
           transition: "opacity 0.2s",
-          opacity: entered ? 1 : 0,
-          visibility: entered ? "visible" : "hidden",
+          opacity: user && entered ? 1 : 0,
+          visibility: user && entered ? "visible" : "hidden",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        {/* <img
-          src={user.iconFileName ? `${API_BASE_URL}/uploads/${user.iconFileName}` : ""}
-          alt={user.name}
-          width={80}
-          height={80}
-          style={{ borderRadius: 40, marginBottom: 16, objectFit: "cover", background: "#eee" }}
-        /> */}
-        <div style={{ fontSize: 20, fontWeight: 600 }}>{user.name}</div>
+        {user && entered && (
+          <>
+            <Image
+              src={user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"}
+              alt={user.name}
+              width={80}
+              height={80}
+              style={{
+                borderRadius: "50%",
+                marginBottom: 16,
+                objectFit: "cover",
+                background: "#eee",
+                aspectRatio: "1 / 1",
+                display: "block",
+              }}
+            />
+            <div style={{ fontSize: 20, fontWeight: 600 }}>{user.name}</div>
+          </>
+        )}
       </div>
 
       {/* 入室中ユーザー一覧テーブル */}
@@ -127,7 +134,7 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
             textAlign: "center",
             width: "100%",
             tableLayout: "fixed",
-            borderRadius: 16, // 角を丸く
+            borderRadius: 16,
             overflow: "hidden",
             boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
           }}
@@ -187,8 +194,8 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                       margin: "2px 0",
                     }}
                   >
-                    {/* <img
-                      src={u.iconFileName ? `${API_BASE_URL}/uploads/${u.iconFileName}` : ""}
+                    <Image
+                      src={u.iconFileName ? `/uploads/${u.iconFileName}` : "/file.svg"}
                       alt={u.name}
                       width={32}
                       height={32}
@@ -198,7 +205,13 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                         objectFit: "cover",
                         background: "#eee",
                       }}
-                    /> */}
+                      onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target && target.src !== "/file.svg") {
+                          target.src = "/file.svg";
+                        }
+                      }}
+                    />
                     <span style={{ fontSize: 20 }}>{u.name}</span>
                   </div>
                 </td>

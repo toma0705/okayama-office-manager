@@ -44,3 +44,18 @@ next-env.d.ts
 .vscode/
 
 /src/generated/prisma
+
+# Prisma DB
+prisma/dev.db
+
+# SQLite journal
+prisma/*.db-journal
+
+# SQLite other
+*.sqlite
+
+# Log files
+*.log
+
+# Next.js build cache (if using TurboRepo)
+.turbo/

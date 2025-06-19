@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/generated/prisma/client';
 
 const prisma = new PrismaClient();
 
 // ユーザーの退室処理API
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: { id: string } }) {
+  const params = await context.params;
   const userId = Number(params.id);
   if (isNaN(userId)) {
     return NextResponse.json({ error: '不正なIDです' }, { status: 400 });

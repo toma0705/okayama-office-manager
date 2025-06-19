@@ -1,23 +1,25 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import HomeForm from "@/Components/HomeForm";
 import type { User } from "@/types/declaration";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [entered] = useState(false);
+  const [entered, setEntered] = useState(false); // ← useStateで管理
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
   const router = useRouter();
 
-  useEffect(() => {
+  // fetchUserAndEnteredUsersをuseCallbackでラップし、useEffectの依存配列警告を解消
+  const fetchUserAndEnteredUsers = useCallback(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
       return;
     }
-    // ユーザー情報取得APIを叩く
-    fetch("/api/users/me", {
+    fetch(`${API_BASE_URL}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -27,6 +29,9 @@ const Home = () => {
       .then((data) => {
         setUser(data.user);
         setEnteredUsers(data.enteredUsers || []);
+        // 自分が入室中かどうか判定
+        const isEntered = (data.enteredUsers || []).some((u: User) => u.id === data.user.id);
+        setEntered(isEntered);
       })
       .catch(() => {
         localStorage.removeItem("token");
@@ -34,8 +39,28 @@ const Home = () => {
       });
   }, [router]);
 
-  const onEnter = () => {};
-  const onExit = () => {};
+  useEffect(() => {
+    fetchUserAndEnteredUsers();
+  }, [fetchUserAndEnteredUsers]);
+
+  const onEnter = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+    await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    fetchUserAndEnteredUsers();
+  };
+  const onExit = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+    await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    fetchUserAndEnteredUsers();
+  };
 
   return (
     <div>
