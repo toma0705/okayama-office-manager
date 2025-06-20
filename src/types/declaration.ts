@@ -11,6 +11,7 @@ export type JwtPayload = {
 export type User = {
   id: number;
   name: string;
+  email: string;
   iconFileName: string;
   enteredAt?: string | null; // 入室時刻（ISO文字列 or null）を追加
 };

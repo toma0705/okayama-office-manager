@@ -51,6 +51,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState("");
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -66,9 +67,9 @@ export default function Register({ onBack }: { onBack: () => void }) {
   }, []);
 
   const addUser = async () => {
-    if (!name || !password || !iconFile) {
-      if (!name || !password) {
-        alert("名前とパスワードは必須です");
+    if (!name || !email || !password || !iconFile) {
+      if (!name || !email || !password) {
+        alert("名前・メールアドレス・パスワードは必須です");
       } else if (!iconFile) {
         alert("アイコン画像の選択は必須です");
       }
@@ -77,6 +78,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
     try {
       const formData = new FormData();
       formData.append("name", name);
+      formData.append("email", email);
       formData.append("icon", iconFile);
       formData.append("password", password);
       const res = await fetch(`${API_BASE_URL}/users`, {
@@ -89,6 +91,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
         alert("ユーザー追加に失敗しました");
       }
       setName("");
+      setEmail("");
       setIconFile(null);
       setPassword("");
     } catch (err) {
@@ -183,6 +186,13 @@ export default function Register({ onBack }: { onBack: () => void }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="名前を入力"
+        style={inputStyle}
+      />
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="メールアドレス"
         style={inputStyle}
       />
       <input

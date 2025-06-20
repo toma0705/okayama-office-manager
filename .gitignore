@@ -59,3 +59,10 @@ prisma/*.db-journal
 
 # Next.js build cache (if using TurboRepo)
 .turbo/
+
+# user uploads (ignore all files in public/uploads, but keep the folder)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Prisma migration files
+prisma/migrations/*/migration.sql

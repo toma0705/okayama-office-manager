@@ -25,11 +25,12 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const name = formData.get('name')?.toString();
+    const email = formData.get('email')?.toString();
     const password = formData.get('password')?.toString();
     const icon = formData.get('icon');
 
-    if (!name || !password || !icon || !(icon instanceof File)) {
-      return NextResponse.json({ error: 'name, password, icon 必須' }, { status: 400 });
+    if (!name || !email || !password || !icon || !(icon instanceof File)) {
+      return NextResponse.json({ error: 'name, email, password, icon 必須' }, { status: 400 });
     }
 
     // uploadsディレクトリがなければ作成
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({
       data: {
         name,
+        email,
         password, // ハッシュ化せず保存
         iconFileName: fileName,
       },

@@ -7,18 +7,18 @@ const prisma = new PrismaClient();
 
 // ユーザーログインAPI
 export async function POST(req: NextRequest) {
-  // リクエストボディからnameとpasswordを取得
-  const { name, password } = await req.json();
-  if (!name || !password) {
+  // リクエストボディからemailとpasswordを取得
+  const { email, password } = await req.json();
+  if (!email || !password) {
     // 必須項目がなければエラーを返す
-    return NextResponse.json({ error: 'nameとpasswordは必須です' }, { status: 400 });
+    return NextResponse.json({ error: 'emailとpasswordは必須です' }, { status: 400 });
   }
 
   // DBからユーザーを検索
-  const user = await prisma.user.findFirst({ where: { name, password } });
+  const user = await prisma.user.findFirst({ where: { email, password } });
   if (!user) {
     // ユーザーが見つからなければ認証エラー
-    return NextResponse.json({ error: 'ユーザー名またはパスワードが違います' }, { status: 401 });
+    return NextResponse.json({ error: 'メールアドレスまたはパスワードが違います' }, { status: 401 });
   }
 
   // JWTトークンを発行（7日間有効）

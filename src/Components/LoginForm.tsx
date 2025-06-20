@@ -14,7 +14,7 @@ const inputStyle = {
 };
 
 export default function LoginForm() {
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
@@ -22,7 +22,7 @@ export default function LoginForm() {
     const res = await fetch(`${API_BASE_URL}/users/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), password: password.trim() }),
+      body: JSON.stringify({ email: email.trim(), password: password.trim() }),
     });
     if (res.ok) {
       const { token } = await res.json();
@@ -30,17 +30,17 @@ export default function LoginForm() {
       router.push("/");
     } else {
       const err = await res.json().catch(() => ({}));
-      alert(err.error || "ユーザー名またはパスワードが違います");
+      alert(err.error || "メールアドレスまたはパスワードが違います");
     }
   };
 
   return (
     <div style={{ padding: 24, maxWidth: 400, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", background: "#f7f7f7" }}>
       <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="ユーザー名"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="メールアドレス"
         style={{ ...inputStyle, marginBottom: 16 }}
       />
       <input

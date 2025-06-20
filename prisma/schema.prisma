@@ -18,8 +18,11 @@ datasource db {
 model User {
   id      Int    @id @default(autoincrement()) // ユーザーごとの番号（自動で増える）
   name    String // ユーザー名（必須）
+  email   String @unique // メールアドレス（必須・一意）
   iconFileName String // アイコン画像のファイル名（必須）
   password String // パスワード（必須）
+  resetToken   String?   // パスワードリセット用トークン
+  resetTokenExpires DateTime? // トークン有効期限
   enters  Enter[] // ユーザーの入退室履歴（リレーション）
 }
 
