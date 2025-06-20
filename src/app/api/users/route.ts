@@ -45,6 +45,12 @@ export async function POST(req: NextRequest) {
     const filePath = path.join(uploadDir, fileName);
     await writeFile(filePath, buffer);
 
+    // emailの重複チェック
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) {
+      return NextResponse.json({ error: 'このメールアドレスは既に登録されています' }, { status: 409 });
+    }
+
     // パスワードをハッシュ化せず、そのまま保存
     const user = await prisma.user.create({
       data: {
