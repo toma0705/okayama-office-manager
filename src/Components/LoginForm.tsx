@@ -56,7 +56,7 @@ export default function LoginForm() {
           fontSize: 18,
           padding: 12,
           borderRadius: 8,
-          background: "#7bc062", // 緑色
+          background: "#7bc062",
           color: "#fff",
           border: "none",
           marginBottom: 12,
@@ -71,12 +71,27 @@ export default function LoginForm() {
           padding: 10,
           borderRadius: 8,
           background: "#fff",
-          color: "#7bc062", // 緑色
-          border: "1px solid #7bc062", // 緑色
+          color: "#7bc062",
+          border: "1px solid #7bc062",
+          marginBottom: 16,
         }}
       >
         新規登録
       </button>
+      <a
+        href="/reset-password"
+        style={{
+          color: "#7bc062",
+          fontSize: 15,
+          textDecoration: "underline",
+          fontWeight: 600,
+          margin: "8px 0 0 0",
+          display: "block",
+          textAlign: "center",
+        }}
+      >
+        パスワードをお忘れの方はこちら
+      </a>
     </div>
   );
 }

@@ -159,19 +159,6 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
           >
             ログアウト
           </button>
-          <a
-            href="/reset-password"
-            style={{
-              color: "#7bc062",
-              fontSize: 16,
-              textDecoration: "underline",
-              fontWeight: 600,
-              marginBottom: 24,
-              display: "block",
-            }}
-          >
-            パスワード再設定
-          </a>
           <button
             onClick={handleDeleteAccount}
             style={{
@@ -183,6 +170,7 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
               border: "none",
               cursor: "pointer",
               fontWeight: 600,
+              marginBottom: 24,
             }}
           >
             アカウント削除
