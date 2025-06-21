@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -78,7 +79,7 @@ export default function LoginForm() {
       >
         新規登録
       </button>
-      <a
+      <Link
         href="/reset-password"
         style={{
           color: "#7bc062",
@@ -91,7 +92,7 @@ export default function LoginForm() {
         }}
       >
         パスワードをお忘れの方はこちら
-      </a>
+      </Link>
     </div>
   );
 }
