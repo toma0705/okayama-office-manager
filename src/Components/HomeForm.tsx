@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/declaration";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Props = {
   user: User | null;
@@ -10,6 +10,7 @@ type Props = {
   onEnter: () => void;
   onExit: () => void;
   enteredUsers: User[];
+  onReload: () => void;
 };
 
 const enterExitButtonStyle = {
@@ -21,9 +22,25 @@ const enterExitButtonStyle = {
   width: 120,
 };
 
-export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers }: Props) {
+export default function HomeForm({
+  user,
+  entered,
+  onEnter,
+  onExit,
+  enteredUsers,
+  onReload,
+}: Props) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // notesステートの初期化・同期
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  useEffect(() => {
+    setNotes(Object.fromEntries(enteredUsers.map((u) => [u.id, u.note ?? ""])));
+  }, [enteredUsers]);
+
+  // 編集中のユーザーID（自分のnoteのみ編集可）
+  const [editNoteUserId, setEditNoteUserId] = useState<number | null>(null);
 
   const handleEnter = () => onEnter();
 
@@ -33,9 +50,31 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
     router.push("/login");
   };
 
+  // テキストボックス変更時
+  const handleNoteChange = (userId: number, value: string) => {
+    setNotes((prev) => ({ ...prev, [userId]: value }));
+  };
+
+  // テキストボックス保存時
+  const handleNoteSave = async (userId: number) => {
+    const note = notes[userId];
+    await fetch(`/api/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    });
+    onReload(); //編集時,最新の状態に更新
+    setEditNoteUserId(null); // 編集モード解除
+  };
+
   const handleDeleteAccount = async () => {
     if (!user) return;
-    if (!window.confirm("本当にアカウントを削除しますか？この操作は元に戻せません。")) return;
+    if (
+      !window.confirm(
+        "本当にアカウントを削除しますか？この操作は元に戻せません。"
+      )
+    )
+      return;
     await fetch(`/api/users/${user.id}`, { method: "DELETE" });
     localStorage.removeItem("token");
     router.push("/login");
@@ -73,7 +112,9 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
           onClick={() => setSidebarOpen(true)}
         >
           <Image
-            src={user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"}
+            src={
+              user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"
+            }
             alt={user.name}
             width={72}
             height={72}
@@ -125,11 +166,22 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
             }}
             aria-label="サイドバーを閉じる"
           >
-            ×
+            ×{/*この×ボタン,画像にすべき？*/}
           </button>
-          <div style={{ display: "flex", alignItems: "center", marginTop: 32, marginBottom: 32 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginTop: 32,
+              marginBottom: 32,
+            }}
+          >
             <Image
-              src={user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"}
+              src={
+                user.iconFileName
+                  ? `/uploads/${user.iconFileName}`
+                  : "/file.svg"
+              }
               alt={user.name}
               width={64}
               height={64}
@@ -234,7 +286,14 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
       />
 
       {/* 入室中ユーザー一覧テーブル */}
-      <div style={{ marginTop: 0, minHeight: 300 }}>
+      <div
+        style={{
+          marginTop: 0,
+          height: "350px",
+          overflowY: "auto",
+          borderRadius: 16,
+        }}
+      >
         <table
           style={{
             borderCollapse: "separate",
@@ -243,23 +302,17 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
             width: "100%",
             tableLayout: "fixed",
             borderRadius: 16,
-            overflow: "hidden",
             boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
           }}
         >
-          <thead
-            style={{
-              height: "50px",
-              color: "#f9fafb",
-              fontSize: "20px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-          >
-            <tr style={{ backgroundColor: "#7bc062" }}>
+          <thead>
+            <tr>
               <th
                 style={{
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  background: "#7bc062",
                   fontSize: 16,
                   color: "#f9fafb",
                   padding: "12px 8px",
@@ -269,10 +322,16 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                 }}
               >
                 入室中ユーザー
+                <br />
+                入室した時間
               </th>
               <th
                 style={{
-                  fontSize: 16,
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  background: "#7bc062",
+                  fontSize: 20,
                   color: "#f9fafb",
                   padding: "12px 8px",
                   minWidth: 100,
@@ -280,7 +339,7 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                   wordBreak: "keep-all",
                 }}
               >
-                入室した時間
+                メモ・備考
               </th>
             </tr>
           </thead>
@@ -303,7 +362,11 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                     }}
                   >
                     <Image
-                      src={u.iconFileName ? `/uploads/${u.iconFileName}` : "/file.svg"}
+                      src={
+                        u.iconFileName
+                          ? `/uploads/${u.iconFileName}`
+                          : "/file.svg"
+                      }
                       alt={u.name}
                       width={32}
                       height={32}
@@ -313,7 +376,9 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                         objectFit: "cover",
                         background: "#eee",
                       }}
-                      onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                      onError={(
+                        e: React.SyntheticEvent<HTMLImageElement, Event>
+                      ) => {
                         const target = e.target as HTMLImageElement;
                         if (target && target.src !== "/file.svg") {
                           target.src = "/file.svg";
@@ -322,6 +387,7 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                     />
                     <span style={{ fontSize: 20 }}>{u.name}</span>
                   </div>
+                  {u.enteredAt ? formatDateTime(u.enteredAt) : "-"}
                 </td>
                 <td
                   style={{
@@ -331,7 +397,68 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                     fontSize: 20,
                   }}
                 >
-                  {u.enteredAt ? formatDateTime(u.enteredAt) : "-"}
+                  {editNoteUserId === u.id && user?.id === u.id ? (
+                    <>
+                      <textarea
+                        id={`note-${u.id}`}
+                        value={notes[u.id] ?? ""}
+                        onChange={(e) => handleNoteChange(u.id, e.target.value)}
+                        rows={1}
+                        style={{
+                          width: "100%",
+                          borderRadius: 8,
+                          border: "1px solid #ccc",
+                          padding: 12,
+                          fontSize: 16,
+                          resize: "vertical",
+                          boxSizing: "border-box",
+                        }}
+                        placeholder="メモを残す"
+                      />
+                      <button
+                        onClick={() => handleNoteSave(u.id)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          background: "#7bc062",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        保存
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <span style={{ fontSize: 18 }}>{u.note}</span>
+                        {user?.id === u.id && (
+                          <button
+                            onClick={() => setEditNoteUserId(u.id)}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: 6,
+                              background: "#1976d2",
+                              color: "#fff",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            編集
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -348,5 +475,7 @@ function formatDateTime(dt: string | Date | undefined): string {
   if (isNaN(date.getTime())) return "-";
   const pad = (n: number) => n.toString().padStart(2, "0");
   // 年と秒を省略し、月/日 時:分 のみ表示
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
 }

@@ -30,7 +30,9 @@ const Home = () => {
         setUser(data.user);
         setEnteredUsers(data.enteredUsers || []);
         // 自分が入室中かどうか判定
-        const isEntered = (data.enteredUsers || []).some((u: User) => u.id === data.user.id);
+        const isEntered = (data.enteredUsers || []).some(
+          (u: User) => u.id === data.user.id
+        );
         setEntered(isEntered);
       })
       .catch(() => {
@@ -70,6 +72,7 @@ const Home = () => {
         onEnter={onEnter}
         onExit={onExit}
         enteredUsers={enteredUsers}
+        onReload={fetchUserAndEnteredUsers}
       />
     </div>
   );
