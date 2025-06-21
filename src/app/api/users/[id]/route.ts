@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // ユーザー1件取得API
 export async function GET(
   _: NextRequest,
-  context: Promise<{ params: { id: string } }>
+  context: any
 ) {
   const { params } = await context;
   const user = await prisma.user.findUnique({
@@ -25,7 +25,7 @@ export async function GET(
 // ユーザー削除API
 export async function DELETE(
   _: NextRequest,
-  context: Promise<{ params: { id: string } }>
+  context: any
 ) {
   const { params } = await context;
   const userId = Number(params.id);
@@ -57,7 +57,7 @@ export async function DELETE(
 // テキストボックスAPI
 export async function PATCH(
   req: NextRequest,
-  context: Promise<{ params: { id: string } }>
+  context: any
 ) {
   const { params } = await context;
   const id = Number(params.id);
