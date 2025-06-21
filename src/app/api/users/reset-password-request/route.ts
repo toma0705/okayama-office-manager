@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     data: { resetToken: token, resetTokenExpires: expires },
   });
   // 本来はここでメール送信処理（今回はダミー: URLを返す）
-  const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password/${token}`;
+  const resetUrl = `${process.env.NEXT_PUBLIC_URL}/reset-password/${token}`;
   // console.log(`パスワード再設定URL: ${resetUrl}`);
   // 本番用: メール送信
   const transporter = nodemailer.createTransport({
