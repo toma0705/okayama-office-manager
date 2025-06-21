@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 // ユーザーの入室記録を作成するAPI
 export async function POST(
   req: NextRequest,
-  context: { params: Record<string, string> }
+  context: any
 ) {
   const { id } = context.params;
   const userId = Number(id);
