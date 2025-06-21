@@ -4,7 +4,10 @@ import { PrismaClient } from '@/generated/prisma/client';
 const prisma = new PrismaClient();
 
 // ユーザーの入室記録を作成するAPI
-export async function POST(req: NextRequest, context: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  context: any
+) {
   const { id } = context.params;
   const userId = Number(id);
 
