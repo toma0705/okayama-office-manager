@@ -158,7 +158,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
               draggable={false}
             >
               <Image
-                src={u.iconFileName ? `/uploads/${u.iconFileName}` : "/file.svg"}
+                src={u.iconFileName ? u.iconFileName : "/file.svg"}
                 alt={u.name}
                 width={40}
                 height={40}
