@@ -49,7 +49,7 @@ export async function DELETE(
   } catch (e) {
     return NextResponse.json(
       { error: "削除失敗", detail: String(e) },
-      { status: 404 }
+      { status: 500 }
     );
   }
 }
