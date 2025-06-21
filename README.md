@@ -108,3 +108,10 @@ SMTP_FROM=youraddress@gmail.com
 
 > SMTP_PASSは他人に絶対に教えないでください。漏洩すると第三者にメール送信される危険があります。
 
+# 画像表示の本番対応
+
+- 本番環境ではCloudinaryの画像URLを直接`src`属性に指定しています。
+- `next.config.js`の`images.domains`に`res.cloudinary.com`を追加してください（追加済みの場合は不要）。
+- 画像アップロードAPIはCloudinaryに対応済みです。
+- 画像表示箇所で`/uploads/`パスが残っていればCloudinaryのURLを使うよう修正してください。
+

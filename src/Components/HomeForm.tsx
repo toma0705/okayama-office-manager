@@ -115,7 +115,9 @@ export default function HomeForm({
         >
           <Image
             src={
-              user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"
+              user.iconFileName && user.iconFileName.startsWith("http")
+                ? user.iconFileName
+                : "/file.svg"
             }
             alt={user.name}
             width={72}
@@ -180,8 +182,8 @@ export default function HomeForm({
           >
             <Image
               src={
-                user.iconFileName
-                  ? `/uploads/${user.iconFileName}`
+                user.iconFileName && user.iconFileName.startsWith("http")
+                  ? user.iconFileName
                   : "/file.svg"
               }
               alt={user.name}
@@ -365,8 +367,8 @@ export default function HomeForm({
                   >
                     <Image
                       src={
-                        u.iconFileName
-                          ? `/uploads/${u.iconFileName}`
+                        u.iconFileName && u.iconFileName.startsWith("http")
+                          ? u.iconFileName
                           : "/file.svg"
                       }
                       alt={u.name}
