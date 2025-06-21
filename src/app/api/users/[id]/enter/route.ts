@@ -5,8 +5,9 @@ const prisma = new PrismaClient();
 
 // ユーザーの入室記録を作成するAPI
 export async function POST(req: NextRequest, context: { params: { id: string } }) {
-  const params = await context.params;
-  const userId = Number(params.id);
+  const { id } = context.params;
+  const userId = Number(id);
+
   if (isNaN(userId)) {
     return NextResponse.json({ error: '不正なIDです' }, { status: 400 });
   }

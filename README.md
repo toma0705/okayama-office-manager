@@ -1,3 +1,13 @@
+<!-- 本番構成まとめ -->
+
+| 項目               | サービス                 |
+|--------------------|-------------------------|
+| フロント/サーバー  | **Vercel** (Next.js)    |
+| 本番DB             | **Vercel Postgres**     |
+| ファイルアップロード| **Cloudinary**          |
+| ORM/DB操作         | **Prisma**              |
+| 認証               | JWT                     |
+
 # Office Manager Next.js アプリ
 
 このリポジトリは Next.js + Prisma + JWT認証によるオフィス管理アプリです。
