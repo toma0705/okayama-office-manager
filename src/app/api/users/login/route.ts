@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@/generated/prisma/client';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -14,10 +15,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'emailとpasswordは必須です' }, { status: 400 });
   }
 
-  // DBからユーザーを検索
-  const user = await prisma.user.findFirst({ where: { email, password } });
+  // DBからユーザーを検索（メールアドレスのみで検索）
+  const user = await prisma.user.findFirst({ where: { email } });
   if (!user) {
-    // ユーザーが見つからなければ認証エラー
+    return NextResponse.json({ error: 'メールアドレスまたはパスワードが違います' }, { status: 401 });
+  }
+  // パスワードをハッシュと比較
+  const isValid = await bcrypt.compare(password, user.password);
+  if (!isValid) {
     return NextResponse.json({ error: 'メールアドレスまたはパスワードが違います' }, { status: 401 });
   }
 

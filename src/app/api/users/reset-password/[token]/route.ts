@@ -5,9 +5,9 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // POST /api/users/reset-password/[token]
-export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
+export async function POST(req: NextRequest, context: { params: { token: string } }) {
   const { password } = await req.json();
-  const { token } = params;
+  const { token } = context.params;
   if (!password || !token) {
     return NextResponse.json({ error: 'パスワードとトークンは必須です' }, { status: 400 });
   }

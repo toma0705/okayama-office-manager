@@ -27,9 +27,11 @@ npm install
 
 ```
 NEXT_PUBLIC_API_URL=http://192.168.2.103:3000/api
+NEXT_PUBLIC_URL=http://192.168.2.103:3000
 DATABASE_URL="file:./dev.db"
 ```
 - `NEXT_PUBLIC_API_URL` はLANアクセス時は `http://<あなたのIPアドレス>:3000/api` などに変更してください。
+- `NEXT_PUBLIC_URL` はパスワード再設定メールのリンク生成などで使うため、**必ず自分の環境に合わせて追加・設定してください**。
 
 4. **PrismaのDBマイグレーション（初回のみ）**
 
@@ -69,4 +71,30 @@ npx prisma studio
 ```
 
 これにより、ブラウザでデータベースの内容を視覚的に確認・編集できるインターフェースが開きます。
+
+## セキュリティ・機密情報の管理について
+
+- `.env`ファイルにはSMTP_PASSなどの機密情報（メール送信用パスワード等）が含まれます。
+- `.env`は**絶対にGit管理（リポジトリへのコミットや公開）をしないでください**。
+- 開発チーム内では、`.env.example`などのサンプルファイルのみ共有し、実際の値は各自がローカルで設定してください。
+- 機密情報の共有が必要な場合は、パスワード管理ツールや安全なDM等で個別に共有してください。
+- 万が一漏洩した場合は、Googleアカウントの「アプリパスワード」をすぐに無効化・再発行してください。
+
+### アプリパスワードの発行方法
+- Googleアカウントの「アプリパスワード」発行ページ: https://myaccount.google.com/apppasswords
+- 2段階認証を有効にした上で、上記リンクからアプリパスワードを発行してください。
+
+### 参考: .envの例
+```
+NEXT_PUBLIC_API_URL=http://<IPアドレス>:3000/api
+NEXT_PUBLIC_URL=http://<IPアドレス>:3000
+DATABASE_URL="file:./dev.db"
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=youraddress@gmail.com
+SMTP_PASS=（アプリパスワード）
+SMTP_FROM=youraddress@gmail.com
+```
+
+> SMTP_PASSは他人に絶対に教えないでください。漏洩すると第三者にメール送信される危険があります。
 

@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@/generated/prisma/client";
+import fs from "fs/promises";
+import path from "path";
 
 const prisma = new PrismaClient();
 
 // ユーザー1件取得API
 export async function GET(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  context: Promise<{ params: { id: string } }>
 ) {
+  const { params } = await context;
   const user = await prisma.user.findUnique({
     where: { id: Number(params.id) },
   });
@@ -22,21 +25,41 @@ export async function GET(
 // ユーザー削除API
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  context: Promise<{ params: { id: string } }>
 ) {
+  const { params } = await context;
+  const userId = Number(params.id);
   try {
-    await prisma.user.delete({ where: { id: Number(params.id) } });
-    return NextResponse.json({ message: "削除しました" }, { status: 204 });
-  } catch {
-    return NextResponse.json({ error: "削除失敗" }, { status: 404 });
+    // ユーザー情報取得（画像ファイル名取得用）
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    // 関連するentersを先に削除
+    await prisma.enter.deleteMany({ where: { userId } });
+    // その後ユーザー本体を削除
+    await prisma.user.delete({ where: { id: userId } });
+    // 画像ファイルも削除
+    if (user && user.iconFileName) {
+      const filePath = path.join(process.cwd(), "public/uploads", user.iconFileName);
+      try {
+        await fs.unlink(filePath);
+      } catch {
+        // ファイルが存在しない場合は無視
+      }
+    }
+    return NextResponse.json({ message: "削除しました" }, { status: 200 });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "削除失敗", detail: String(e) },
+      { status: 500 }
+    );
   }
 }
 
 // テキストボックスAPI
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: Promise<{ params: { id: string } }>
 ) {
+  const { params } = await context;
   const id = Number(params.id);
   const { note } = await req.json();
   try {
@@ -44,8 +67,11 @@ export async function PATCH(
       where: { id },
       data: { note },
     });
-    return NextResponse.json(user);
-  } catch {
-    return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
+    return NextResponse.json(user, { status: 200 });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "更新に失敗しました", detail: String(e) },
+      { status: 500 }
+    );
   }
 }
