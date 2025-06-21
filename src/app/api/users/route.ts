@@ -33,6 +33,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name, email, password, icon 必須' }, { status: 400 });
     }
 
+    // emailの重複チェック
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) {
+      return NextResponse.json({ error: 'このメールアドレスは既に登録されています' }, { status: 409 });
+    }
+
     // uploadsディレクトリがなければ作成
     const uploadDir = path.join(process.cwd(), 'public/uploads');
     if (!fs.existsSync(uploadDir)) {
@@ -44,12 +50,6 @@ export async function POST(req: NextRequest) {
     const fileName = `${Date.now()}-${icon.name}`;
     const filePath = path.join(uploadDir, fileName);
     await writeFile(filePath, buffer);
-
-    // emailの重複チェック
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      return NextResponse.json({ error: 'このメールアドレスは既に登録されています' }, { status: 409 });
-    }
 
     // パスワードをハッシュ化せず、そのまま保存
     const user = await prisma.user.create({

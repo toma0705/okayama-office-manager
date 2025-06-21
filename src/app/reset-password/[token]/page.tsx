@@ -1,13 +1,12 @@
 "use client";
 import { useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 
 export default function ResetPasswordTokenPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const params = useParams();
-  const router = useRouter();
   const token = params?.token as string;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,7 +21,6 @@ export default function ResetPasswordTokenPage() {
     setLoading(false);
     if (res.ok) {
       setMessage("パスワードがリセットされました。ログイン画面から再度ログインしてください。");
-      setTimeout(() => router.push("/login"), 2000);
     } else {
       const err = await res.json().catch(() => ({}));
       setMessage(err.error || "リセットに失敗しました");

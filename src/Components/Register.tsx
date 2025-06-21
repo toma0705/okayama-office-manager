@@ -52,6 +52,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
   }, []);
 
   const addUser = async () => {
+    setErrorMessage("");
     if (!name || !email || !password || !iconFile) {
       if (!name || !email || !password) {
         alert("名前・メールアドレス・パスワードは必須です");
@@ -88,13 +90,19 @@ export default function Register({ onBack }: { onBack: () => void }) {
       if (res.ok) {
         router.push("/login");
       } else {
-        alert("ユーザー追加に失敗しました");
+        const data = await res.json();
+        if (res.status === 409 && data?.error === "このメールアドレスは既に登録されています") {
+          setErrorMessage("既に同じメールアドレスが存在しています");
+        } else {
+          setErrorMessage("ユーザー追加に失敗しました");
+        }
       }
       setName("");
       setEmail("");
       setIconFile(null);
       setPassword("");
     } catch (err) {
+      setErrorMessage("ユーザー追加時にエラーが発生しました");
       console.error(err);
     }
   };
@@ -248,6 +256,9 @@ export default function Register({ onBack }: { onBack: () => void }) {
           </div>
         )}
       </label>
+      {errorMessage && (
+        <div style={{ color: "#d32f2f", marginBottom: 12, textAlign: "center", fontWeight: 600 }}>{errorMessage}</div>
+      )}
       <hr
         onContextMenu={e => e.preventDefault()}
         style={{
