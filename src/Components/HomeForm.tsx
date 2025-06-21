@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/declaration";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Props = {
   user: User | null;
@@ -21,9 +21,21 @@ const enterExitButtonStyle = {
   width: 120,
 };
 
-export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers }: Props) {
+export default function HomeForm({
+  user,
+  entered,
+  onEnter,
+  onExit,
+  enteredUsers,
+}: Props) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // notesステートの初期化・同期
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  useEffect(() => {
+    setNotes(Object.fromEntries(enteredUsers.map((u) => [u.id, u.note ?? ""])));
+  }, [enteredUsers]);
 
   const handleEnter = () => onEnter();
 
@@ -33,9 +45,29 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
     router.push("/login");
   };
 
+  // テキストボックス変更時
+  const handleNoteChange = (userId: number, value: string) => {
+    setNotes((prev) => ({ ...prev, [userId]: value }));
+  };
+
+  // テキストボックス保存時
+  const handleNoteSave = async (userId: number) => {
+    const note = notes[userId];
+    await fetch(`/api/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    });
+  };
+
   const handleDeleteAccount = async () => {
     if (!user) return;
-    if (!window.confirm("本当にアカウントを削除しますか？この操作は元に戻せません。")) return;
+    if (
+      !window.confirm(
+        "本当にアカウントを削除しますか？この操作は元に戻せません。"
+      )
+    )
+      return;
     await fetch(`/api/users/${user.id}`, { method: "DELETE" });
     localStorage.removeItem("token");
     router.push("/login");
@@ -73,7 +105,9 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
           onClick={() => setSidebarOpen(true)}
         >
           <Image
-            src={user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"}
+            src={
+              user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"
+            }
             alt={user.name}
             width={72}
             height={72}
@@ -124,12 +158,21 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
               lineHeight: 1,
             }}
             aria-label="サイドバーを閉じる"
+          ></button>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginTop: 32,
+              marginBottom: 32,
+            }}
           >
-            ×
-          </button>
-          <div style={{ display: "flex", alignItems: "center", marginTop: 32, marginBottom: 32 }}>
             <Image
-              src={user.iconFileName ? `/uploads/${user.iconFileName}` : "/file.svg"}
+              src={
+                user.iconFileName
+                  ? `/uploads/${user.iconFileName}`
+                  : "/file.svg"
+              }
               alt={user.name}
               width={64}
               height={64}
@@ -303,7 +346,11 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                     }}
                   >
                     <Image
-                      src={u.iconFileName ? `/uploads/${u.iconFileName}` : "/file.svg"}
+                      src={
+                        u.iconFileName
+                          ? `/uploads/${u.iconFileName}`
+                          : "/file.svg"
+                      }
                       alt={u.name}
                       width={32}
                       height={32}
@@ -313,7 +360,9 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                         objectFit: "cover",
                         background: "#eee",
                       }}
-                      onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                      onError={(
+                        e: React.SyntheticEvent<HTMLImageElement, Event>
+                      ) => {
                         const target = e.target as HTMLImageElement;
                         if (target && target.src !== "/file.svg") {
                           target.src = "/file.svg";
@@ -322,6 +371,7 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                     />
                     <span style={{ fontSize: 20 }}>{u.name}</span>
                   </div>
+                  {u.enteredAt ? formatDateTime(u.enteredAt) : "-"}
                 </td>
                 <td
                   style={{
@@ -331,7 +381,44 @@ export default function HomeForm({ user, entered, onEnter, onExit, enteredUsers 
                     fontSize: 20,
                   }}
                 >
-                  {u.enteredAt ? formatDateTime(u.enteredAt) : "-"}
+                  {user?.id !== u.id && (
+                    <span style={{ fontSize: 20 }}>{u.note}</span>
+                  )}
+                  {user?.id === u.id && (
+                    <>
+                      <textarea
+                        id={`note-${u.id}`}
+                        value={notes[u.id] ?? ""}
+                        onChange={(e) => handleNoteChange(u.id, e.target.value)}
+                        rows={4}
+                        style={{
+                          width: "100%",
+                          borderRadius: 8,
+                          border: "1px solid #ccc",
+                          padding: 12,
+                          fontSize: 16,
+                          resize: "vertical",
+                          boxSizing: "border-box",
+                          marginLeft: 8,
+                        }}
+                        placeholder="自由にメモを記入できます"
+                      />
+                      <button
+                        onClick={() => handleNoteSave(u.id)}
+                        style={{
+                          marginLeft: 8,
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          background: "#7bc062",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        保存
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -348,5 +435,7 @@ function formatDateTime(dt: string | Date | undefined): string {
   if (isNaN(date.getTime())) return "-";
   const pad = (n: number) => n.toString().padStart(2, "0");
   // 年と秒を省略し、月/日 時:分 のみ表示
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
 }

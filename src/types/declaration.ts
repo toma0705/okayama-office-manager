@@ -14,4 +14,5 @@ export type User = {
   email: string;
   iconFileName: string;
   enteredAt?: string | null; // 入室時刻（ISO文字列 or null）を追加
+  note?: string | null; // ユーザーノート（null許容）
 };

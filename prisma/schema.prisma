@@ -24,6 +24,7 @@ model User {
   resetToken   String?   // パスワードリセット用トークン
   resetTokenExpires DateTime? // トークン有効期限
   enters  Enter[] // ユーザーの入退室履歴（リレーション）
+  note String? // テキストボックス用の自由記述欄
 }
 
 // 入退室履歴テーブル（ユーザーの入退室を記録）
