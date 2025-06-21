@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // POST /api/users/reset-password/[token]
-export async function POST(req: NextRequest, context: { params: { token: string } }) {
+export async function POST(req: NextRequest, context: any) {
   const { password } = await req.json();
   const { token } = context.params;
   if (!password || !token) {
