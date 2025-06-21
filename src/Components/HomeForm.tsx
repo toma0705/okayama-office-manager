@@ -77,6 +77,8 @@ export default function HomeForm({
       return;
     await fetch(`/api/users/${user.id}`, { method: "DELETE" });
     localStorage.removeItem("token");
+    // ユーザー一覧・入室中ユーザー再取得
+    onReload();
     router.push("/login");
   };
 
