@@ -10,6 +10,7 @@ type Props = {
   onEnter: () => void;
   onExit: () => void;
   enteredUsers: User[];
+  onReload: () => void;
 };
 
 const enterExitButtonStyle = {
@@ -27,6 +28,7 @@ export default function HomeForm({
   onEnter,
   onExit,
   enteredUsers,
+  onReload,
 }: Props) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,6 +38,9 @@ export default function HomeForm({
   useEffect(() => {
     setNotes(Object.fromEntries(enteredUsers.map((u) => [u.id, u.note ?? ""])));
   }, [enteredUsers]);
+
+  // 編集中のユーザーID（自分のnoteのみ編集可）
+  const [editNoteUserId, setEditNoteUserId] = useState<number | null>(null);
 
   const handleEnter = () => onEnter();
 
@@ -58,6 +63,8 @@ export default function HomeForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ note }),
     });
+    onReload(); //編集時,最新の状態に更新
+    setEditNoteUserId(null); // 編集モード解除
   };
 
   const handleDeleteAccount = async () => {
@@ -158,7 +165,9 @@ export default function HomeForm({
               lineHeight: 1,
             }}
             aria-label="サイドバーを閉じる"
-          ></button>
+          >
+            ×{/*この×ボタン,画像にすべき？*/}
+          </button>
           <div
             style={{
               display: "flex",
@@ -277,7 +286,14 @@ export default function HomeForm({
       />
 
       {/* 入室中ユーザー一覧テーブル */}
-      <div style={{ marginTop: 0, minHeight: 300 }}>
+      <div
+        style={{
+          marginTop: 0,
+          height: "350px",
+          overflowY: "auto",
+          borderRadius: 16,
+        }}
+      >
         <table
           style={{
             borderCollapse: "separate",
@@ -286,23 +302,17 @@ export default function HomeForm({
             width: "100%",
             tableLayout: "fixed",
             borderRadius: 16,
-            overflow: "hidden",
             boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
           }}
         >
-          <thead
-            style={{
-              height: "50px",
-              color: "#f9fafb",
-              fontSize: "20px",
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-            }}
-          >
-            <tr style={{ backgroundColor: "#7bc062" }}>
+          <thead>
+            <tr>
               <th
                 style={{
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  background: "#7bc062",
                   fontSize: 16,
                   color: "#f9fafb",
                   padding: "12px 8px",
@@ -312,10 +322,16 @@ export default function HomeForm({
                 }}
               >
                 入室中ユーザー
+                <br />
+                入室した時間
               </th>
               <th
                 style={{
-                  fontSize: 16,
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  background: "#7bc062",
+                  fontSize: 20,
                   color: "#f9fafb",
                   padding: "12px 8px",
                   minWidth: 100,
@@ -323,7 +339,7 @@ export default function HomeForm({
                   wordBreak: "keep-all",
                 }}
               >
-                入室した時間
+                メモ・備考
               </th>
             </tr>
           </thead>
@@ -381,16 +397,13 @@ export default function HomeForm({
                     fontSize: 20,
                   }}
                 >
-                  {user?.id !== u.id && (
-                    <span style={{ fontSize: 20 }}>{u.note}</span>
-                  )}
-                  {user?.id === u.id && (
+                  {editNoteUserId === u.id && user?.id === u.id ? (
                     <>
                       <textarea
                         id={`note-${u.id}`}
                         value={notes[u.id] ?? ""}
                         onChange={(e) => handleNoteChange(u.id, e.target.value)}
-                        rows={4}
+                        rows={1}
                         style={{
                           width: "100%",
                           borderRadius: 8,
@@ -399,14 +412,12 @@ export default function HomeForm({
                           fontSize: 16,
                           resize: "vertical",
                           boxSizing: "border-box",
-                          marginLeft: 8,
                         }}
-                        placeholder="自由にメモを記入できます"
+                        placeholder="メモを残す"
                       />
                       <button
                         onClick={() => handleNoteSave(u.id)}
                         style={{
-                          marginLeft: 8,
                           padding: "6px 12px",
                           borderRadius: 6,
                           background: "#7bc062",
@@ -417,6 +428,35 @@ export default function HomeForm({
                       >
                         保存
                       </button>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <span style={{ fontSize: 18 }}>{u.note}</span>
+                        {user?.id === u.id && (
+                          <button
+                            onClick={() => setEditNoteUserId(u.id)}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: 6,
+                              background: "#1976d2",
+                              color: "#fff",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            編集
+                          </button>
+                        )}
+                      </div>
                     </>
                   )}
                 </td>
