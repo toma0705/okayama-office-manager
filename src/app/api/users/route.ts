@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@/generated/prisma/client';
 import cloudinary from 'cloudinary';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -59,12 +60,13 @@ export async function POST(req: NextRequest) {
     });
     const imageUrl = uploadResult.secure_url;
 
-    // パスワードをハッシュ化せず、そのまま保存
+    // パスワードをハッシュ化して保存
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        password, // ハッシュ化せず保存
+        password: hashedPassword, // ハッシュ化して保存
         iconFileName: imageUrl, // カラム名をiconUrl等にリネーム推奨
       },
       include: {
