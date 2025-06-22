@@ -66,3 +66,4 @@ public/uploads/*
 
 # Prisma migration files
 prisma/migrations/*/migration.sql
+*.zip
