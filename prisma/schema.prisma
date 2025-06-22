@@ -23,15 +23,8 @@ model User {
   password String // パスワード（必須）
   resetToken   String?   // パスワードリセット用トークン
   resetTokenExpires DateTime? // トークン有効期限
-  enters  Enter[] // ユーザーの入退室履歴（リレーション）
   note String? // テキストボックス用の自由記述欄
-}
-
-// 入退室履歴テーブル（ユーザーの入退室を記録）
-model Enter {
-  id        Int      @id @default(autoincrement()) // 履歴ごとの番号
-  user      User     @relation(fields: [userId], references: [id]) // Userとのリレーション
-  userId    Int      // UserのID
-  enteredAt DateTime // 入室時刻
-  exitAt    DateTime? // 退室時刻（nullならまだ退室していない）
+  entered   Boolean   @default(false) // 入室中かどうか
+  enteredAt DateTime? // 入室した時刻
+  exitedAt  DateTime? // 退室した時刻
 }
