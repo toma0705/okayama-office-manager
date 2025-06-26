@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -14,24 +8,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Userテーブル（ユーザー情報を保存する場所）の設計
 model User {
-  id      Int    @id @default(autoincrement()) // ユーザーごとの番号（自動で増える）
-  name    String // ユーザー名（必須）
-  email   String @unique // メールアドレス（必須・一意）
-  iconFileName String // アイコン画像のファイル名（必須）
-  password String // パスワード（必須）
-  resetToken   String?   // パスワードリセット用トークン
-  resetTokenExpires DateTime? // トークン有効期限
-  enters  Enter[] // ユーザーの入退室履歴（リレーション）
-  note String? // テキストボックス用の自由記述欄
-}
-
-// 入退室履歴テーブル（ユーザーの入退室を記録）
-model Enter {
-  id        Int      @id @default(autoincrement()) // 履歴ごとの番号
-  user      User     @relation(fields: [userId], references: [id]) // Userとのリレーション
-  userId    Int      // UserのID
-  enteredAt DateTime // 入室時刻
-  exitAt    DateTime? // 退室時刻（nullならまだ退室していない）
+  id                Int       @id @default(autoincrement())
+  name              String
+  email             String    @unique
+  iconFileName      String
+  password          String
+  resetToken        String?
+  resetTokenExpires DateTime?
+  note              String?
+  entered           Boolean   @default(false)
+  enteredAt         DateTime?
+  exitedAt          DateTime?
 }

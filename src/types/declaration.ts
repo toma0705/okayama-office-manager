@@ -13,6 +13,8 @@ export type User = {
   name: string;
   email: string;
   iconFileName: string;
+  entered: boolean; // 入室中かどうか
   enteredAt?: string | null; // 入室時刻（ISO文字列 or null）を追加
+  exitedAt?: string | null; // 退室時刻（ISO文字列 or null）を追加
   note?: string | null; // ユーザーノート（null許容）
 };

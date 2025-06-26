@@ -10,7 +10,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@prisma/client": "^6.10.0",
+    "@aws-sdk/client-s3": "^3.837.0",
+    "@aws-sdk/s3-request-presigner": "^3.837.0",
+    "@prisma/client": "^6.10.1",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",
     "jsonwebtoken": "^9.0.2",
@@ -31,7 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
-    "prisma": "^6.9.0",
+    "prisma": "^6.10.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

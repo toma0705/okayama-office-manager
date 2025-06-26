@@ -32,9 +32,7 @@ export async function DELETE(
   try {
     // ユーザー情報取得（画像ファイル名取得用）
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    // 関連するentersを先に削除
-    await prisma.enter.deleteMany({ where: { userId } });
-    // その後ユーザー本体を削除
+    // ユーザー本体を削除
     await prisma.user.delete({ where: { id: userId } });
     // 画像ファイルも削除
     if (user && user.iconFileName) {

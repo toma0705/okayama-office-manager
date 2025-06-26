@@ -29,11 +29,8 @@ const Home = () => {
       .then((data) => {
         setUser(data.user);
         setEnteredUsers(data.enteredUsers || []);
-        // 自分が入室中かどうか判定
-        const isEntered = (data.enteredUsers || []).some(
-          (u: User) => u.id === data.user.id
-        );
-        setEntered(isEntered);
+        // 自分が入室中かどうかはuser.enteredで判定
+        setEntered(data.user.entered);
       })
       .catch(() => {
         localStorage.removeItem("token");

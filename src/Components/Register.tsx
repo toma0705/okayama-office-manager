@@ -60,7 +60,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
       try {
         const res = await fetch(`${API_BASE_URL}/users`);
         const data = await res.json();
-        setUsers(data);
+        setUsers(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
       }
@@ -147,7 +147,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
     <div style={{ padding: 24, maxWidth: 400, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f7f7f7" }}>
       <h1 style={{ textAlign: "center", marginBottom: 24, fontSize: 24, ...noSelectStyle }}>ユーザー一覧</h1>
       <ul style={{ listStyle: "none", padding: 0, marginBottom: 24 }}>
-        {users.map((u) => {
+        {Array.isArray(users) && users.map((u) => {
           const longPressHandlers = handleUserLongPress(u.id, u.name);
           return (
             <li
