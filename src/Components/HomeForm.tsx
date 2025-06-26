@@ -9,7 +9,7 @@ type Props = {
   entered: boolean;
   onEnter: () => void;
   onExit: () => void;
-  enteredUsers: User[];
+  enteredUsers: User[]; // Userテーブルのentered=trueなユーザー一覧
   onReload: () => void;
 };
 

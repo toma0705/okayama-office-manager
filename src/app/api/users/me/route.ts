@@ -19,7 +19,6 @@ export async function GET(req: NextRequest) {
     const decoded = jwt.verify(token, secret) as { id: number };
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      include: { enters: true }, // 入退室履歴も返す
     });
     if (!user) {
       return NextResponse.json(
@@ -27,31 +26,20 @@ export async function GET(req: NextRequest) {
         { status: 404 }
       );
     }
-    // 入室中ユーザー一覧も返す例（必要に応じて）
-    const enteredUsersRaw = await prisma.user.findMany({
-      where: {
-        enters: {
-          some: {
-            exitAt: null,
-          },
-        },
-      },
-      include: {
-        enters: {
-          where: { exitAt: null },
-          orderBy: { enteredAt: "desc" },
-          take: 1,
-        },
+    // 入室中ユーザー一覧（Userテーブルのenteredがtrueなユーザー）
+    const enteredUsers = await prisma.user.findMany({
+      where: { entered: true },
+      select: {
+        id: true,
+        name: true,
+        iconFileName: true,
+        note: true,
+        enteredAt: true,
+        exitedAt: true,
+        entered: true,
+        email: true,
       },
     });
-    // User[]型にenteredAtを付与して返す
-    const enteredUsers = enteredUsersRaw.map((u) => ({
-      id: u.id,
-      name: u.name,
-      iconFileName: u.iconFileName,
-      note: u.note ?? "",
-      enteredAt: u.enters[0]?.enteredAt ?? null,
-    }));
     return NextResponse.json({ user, enteredUsers });
   } catch {
     return NextResponse.json({ error: "認証エラー" }, { status: 401 });

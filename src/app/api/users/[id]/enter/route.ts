@@ -3,7 +3,7 @@ import { PrismaClient } from '@/generated/prisma/client';
 
 const prisma = new PrismaClient();
 
-// ユーザーの入室記録を作成するAPI
+// ユーザーの入室処理API（Userテーブルのentered, enteredAt, exitedAtを更新）
 export async function POST(
   req: NextRequest,
   context: any
@@ -16,15 +16,16 @@ export async function POST(
   }
 
   try {
-    await prisma.enter.create({
+    await prisma.user.update({
+      where: { id: userId },
       data: {
-        userId,
+        entered: true,
         enteredAt: new Date(),
-        exitAt: null,
+        exitedAt: null,
       },
     });
     return NextResponse.json({ message: '入室しました' }, { status: 200 });
   } catch {
-    return NextResponse.json({ error: '入室記録の作成に失敗しました' }, { status: 500 });
+    return NextResponse.json({ error: '入室処理に失敗しました' }, { status: 500 });
   }
 }

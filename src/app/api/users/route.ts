@@ -2,31 +2,34 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@/generated/prisma/client';
-import cloudinary from 'cloudinary';
 import bcrypt from 'bcryptjs';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
 
 const prisma = new PrismaClient();
 
-// Cloudinary設定
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+// S3クライアント設定
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
 });
+const BUCKET = process.env.AWS_S3_BUCKET_NAME!;
 
 // ユーザー一覧取得API
 export async function GET() {
   try {
-    const users = await prisma.user.findMany({
-      include: { enters: true },
-    });
+    const users = await prisma.user.findMany();
     return NextResponse.json(users);
-  } catch {
-    return NextResponse.json({ error: 'ユーザー一覧取得に失敗しました' }, { status: 500 });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: 'ユーザー一覧取得に失敗しました', detail: String(e) }, { status: 500 });
   }
 }
 
-// ユーザー新規登録API（Cloudinaryアップロード対応）
+// ユーザー新規登録API（S3アップロード対応）
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -45,20 +48,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'このメールアドレスは既に登録されています' }, { status: 409 });
     }
 
-    // Cloudinaryへアップロード
+    // S3へアップロード
     const arrayBuffer = await icon.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const uploadResult = await new Promise<cloudinary.UploadApiResponse>((resolve, reject) => {
-      const stream = cloudinary.v2.uploader.upload_stream(
-        { folder: 'user-icons' },
-        (error, result) => {
-          if (error || !result) reject(error);
-          else resolve(result);
-        }
-      );
-      stream.end(buffer);
-    });
-    const imageUrl = uploadResult.secure_url;
+    const ext = icon.name.split('.').pop() || 'png';
+    const key = `user-icons/${uuidv4()}.${ext}`;
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: icon.type,
+      // ACL: 'public-read', // S3バケットがACL非対応のため削除
+    }));
+    const imageUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 
     // パスワードをハッシュ化して保存
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -66,15 +68,13 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         email,
-        password: hashedPassword, // ハッシュ化して保存
-        iconFileName: imageUrl, // カラム名をiconUrl等にリネーム推奨
-      },
-      include: {
-        enters: true,
+        password: hashedPassword,
+        iconFileName: imageUrl,
       },
     });
     return NextResponse.json(user, { status: 201 });
   } catch (e) {
+    console.error('ユーザー登録エラー:', e);
     return NextResponse.json({ error: 'ユーザー登録に失敗しました', detail: String(e) }, { status: 500 });
   }
 }

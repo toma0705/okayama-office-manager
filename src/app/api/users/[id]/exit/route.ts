@@ -3,7 +3,7 @@ import { PrismaClient } from '@/generated/prisma/client';
 
 const prisma = new PrismaClient();
 
-// ユーザーの退室処理API
+// ユーザーの退室処理API（Userテーブルのentered, exitedAtを更新）
 export async function POST(req: NextRequest, context: any) {
   const params = context.params;
   const userId = Number(params.id);
@@ -12,16 +12,19 @@ export async function POST(req: NextRequest, context: any) {
   }
 
   try {
-    const lastEntry = await prisma.enter.findFirst({
-      where: { userId, exitAt: null },
-      orderBy: { enteredAt: 'desc' },
-    });
-    if (!lastEntry) {
-      return NextResponse.json({ error: '入室記録が見つかりません' }, { status: 404 });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
     }
-    await prisma.enter.update({
-      where: { id: lastEntry.id },
-      data: { exitAt: new Date() },
+    if (!user.entered) {
+      return NextResponse.json({ error: 'すでに退室済みです' }, { status: 400 });
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        entered: false,
+        exitedAt: new Date(),
+      },
     });
     return NextResponse.json({ message: '退室しました' }, { status: 200 });
   } catch {
