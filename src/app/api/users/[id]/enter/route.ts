@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@/generated/prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // ユーザーの入室処理API（Userテーブルのentered, enteredAt, exitedAtを更新）
 export async function POST(

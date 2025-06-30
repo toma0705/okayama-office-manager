@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@/generated/prisma/client';
+import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-
-const prisma = new PrismaClient();
 
 // POST /api/users/reset-password-request
 export async function POST(req: NextRequest) {

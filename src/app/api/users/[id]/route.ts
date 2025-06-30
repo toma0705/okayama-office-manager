@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
 import fs from "fs/promises";
 import path from "path";
-
-const prisma = new PrismaClient();
 
 // ユーザー1件取得API
 export async function GET(
