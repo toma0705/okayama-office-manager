@@ -21,7 +21,13 @@ const BUCKET = process.env.AWS_S3_BUCKET_NAME!;
 // ユーザー一覧取得API
 export async function GET() {
   try {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        iconFileName: true,
+      },
+    });
     return NextResponse.json(users);
   } catch (e) {
     console.error(e);
