@@ -1,12 +1,10 @@
 // GET, POST /api/users
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@/generated/prisma/client';
+import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-
-const prisma = new PrismaClient();
 
 // S3クライアント設定
 const s3 = new S3Client({
