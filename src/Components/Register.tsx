@@ -3,7 +3,7 @@
  * 既存ユーザー一覧表示、新規ユーザー登録フォーム、ユーザー削除機能を提供
  */
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@/types/declaration';
 import Image from 'next/image';
@@ -58,19 +58,31 @@ export default function Register({ onBack }: { onBack: () => void }) {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const hasFetched = useRef(false);
   const router = useRouter();
 
   // 既存ユーザー一覧を取得
   useEffect(() => {
-    (async () => {
+    if (hasFetched.current) return;
+
+    const fetchUsers = async () => {
+      hasFetched.current = true;
+      setIsLoading(true);
+
       try {
         const res = await fetch(`${API_BASE_URL}/users`);
         const data = await res.json();
         setUsers(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
+        hasFetched.current = false;
+      } finally {
+        setIsLoading(false);
       }
-    })();
+    };
+
+    fetchUsers();
   }, []);
 
   // 新規ユーザー登録処理

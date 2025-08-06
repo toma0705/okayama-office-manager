@@ -4,7 +4,7 @@
  */
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -22,6 +22,20 @@ export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
+
+  // ログイン画面表示時にwarmup
+  useEffect(() => {
+    const warmupDatabase = async () => {
+      try {
+        await fetch(`${API_BASE_URL}/warmup`);
+        console.log('Database warmed up from login page');
+      } catch (error) {
+        console.warn('Database warmup failed:', error);
+      }
+    };
+
+    warmupDatabase();
+  }, []);
 
   const handleLogin = async () => {
     const res = await fetch(`${API_BASE_URL}/users/login`, {
