@@ -1,11 +1,16 @@
-'use client'
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import type { User } from "@/types/declaration";
-import Image from "next/image";
+/**
+ * ユーザー登録コンポーネント
+ * 既存ユーザー一覧表示、新規ユーザー登録フォーム、ユーザー削除機能を提供
+ */
+'use client';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import type { User } from '@/types/declaration';
+import Image from 'next/image';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// テキスト選択無効化スタイル
 const noSelectStyle = {
   userSelect: 'none' as const,
   WebkitUserSelect: 'none' as const,
@@ -16,9 +21,9 @@ const inputStyle = {
   fontSize: 18,
   padding: 12,
   borderRadius: 8,
-  border: "1px solid #ccc",
-  width: "100%",
-  boxSizing: "border-box" as const,
+  border: '1px solid #ccc',
+  width: '100%',
+  boxSizing: 'border-box' as const,
   marginBottom: 16,
 };
 
@@ -26,9 +31,9 @@ const primaryButtonStyle = {
   fontSize: 18,
   padding: 12,
   borderRadius: 8,
-  background: "#7bc062",
-  color: "#fff",
-  border: "none",
+  background: '#7bc062',
+  color: '#fff',
+  border: 'none',
   marginBottom: 12,
   marginTop: 12,
   ...noSelectStyle,
@@ -38,9 +43,9 @@ const secondaryButtonStyle = {
   fontSize: 16,
   padding: 10,
   borderRadius: 8,
-  background: "#fff",
-  color: "#7bc062",
-  border: "1px solid #7bc062",
+  background: '#fff',
+  color: '#7bc062',
+  border: '1px solid #7bc062',
   marginBottom: 0,
   marginTop: 8,
   ...noSelectStyle,
@@ -48,13 +53,14 @@ const secondaryButtonStyle = {
 
 export default function Register({ onBack }: { onBack: () => void }) {
   const [users, setUsers] = useState<User[]>([]);
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
   const [iconFile, setIconFile] = useState<File | null>(null);
-  const [password, setPassword] = useState("");
-  const [email, setEmail] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
 
+  // 既存ユーザー一覧を取得
   useEffect(() => {
     (async () => {
       try {
@@ -67,46 +73,56 @@ export default function Register({ onBack }: { onBack: () => void }) {
     })();
   }, []);
 
+  // 新規ユーザー登録処理
   const addUser = async () => {
-    setErrorMessage("");
+    setErrorMessage('');
     if (!name || !email || !password || !iconFile) {
       if (!name || !email || !password) {
-        alert("名前・メールアドレス・パスワードは必須です");
+        alert('名前・メールアドレス・パスワードは必須です');
       } else if (!iconFile) {
-        alert("アイコン画像の選択は必須です");
+        alert('アイコン画像の選択は必須です');
       }
       return;
     }
     try {
       const formData = new FormData();
-      formData.append("name", name);
-      formData.append("email", email);
-      formData.append("icon", iconFile);
-      formData.append("password", password);
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('icon', iconFile);
+      formData.append('password', password);
+
       const res = await fetch(`${API_BASE_URL}/users`, {
-        method: "POST",
+        method: 'POST',
         body: formData,
       });
+
       if (res.ok) {
-        router.push("/login");
+        setName('');
+        setEmail('');
+        setIconFile(null);
+        setPassword('');
+        router.push('/login');
+        return;
       } else {
         const data = await res.json();
-        if (res.status === 409 && data?.error === "このメールアドレスは既に登録されています") {
-          setErrorMessage("既に同じメールアドレスが存在しています");
+        if (res.status === 409 && data?.error === 'このメールアドレスは既に登録されています') {
+          setErrorMessage('既に同じメールアドレスが存在しています');
         } else {
-          setErrorMessage("ユーザー追加に失敗しました");
+          setErrorMessage('ユーザー追加に失敗しました');
         }
       }
-      setName("");
-      setEmail("");
+
+      setName('');
+      setEmail('');
       setIconFile(null);
-      setPassword("");
+      setPassword('');
     } catch (err) {
-      setErrorMessage("ユーザー追加時にエラーが発生しました");
+      setErrorMessage('ユーザー追加時にエラーが発生しました');
       console.error(err);
     }
   };
 
+  // ユーザー長押し削除機能（完成したら消す）
   const handleUserLongPress = (userId: number, userName: string) => {
     let timer: NodeJS.Timeout;
     const onMouseDown = () => {
@@ -114,27 +130,35 @@ export default function Register({ onBack }: { onBack: () => void }) {
         if (window.confirm(`${userName} を削除しますか？`)) {
           try {
             const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
-              method: "DELETE",
+              method: 'DELETE',
             });
             if (res.ok) {
-              setUsers((prev) => prev.filter((u) => u.id !== userId));
+              setUsers(prev => prev.filter(u => u.id !== userId));
             } else {
-              alert("削除に失敗しました");
+              alert('削除に失敗しました');
             }
           } catch {
-            alert("削除時にエラーが発生しました");
+            alert('削除時にエラーが発生しました');
           }
         }
       }, 700);
     };
     const onMouseUp = () => clearTimeout(timer);
-    return { onMouseDown, onMouseUp, onMouseLeave: onMouseUp, onTouchStart: onMouseDown, onTouchEnd: onMouseUp };
+    return {
+      onMouseDown,
+      onMouseUp,
+      onMouseLeave: onMouseUp,
+      onTouchStart: onMouseDown,
+      onTouchEnd: onMouseUp,
+    };
   };
 
+  // アイコン画像のプレビューURL生成
   const iconPreviewUrl = useMemo(() => {
     return iconFile ? URL.createObjectURL(iconFile) : null;
   }, [iconFile]);
 
+  // コンポーネントアンマウント時にプレビューURLをクリーンアップ
   useEffect(() => {
     return () => {
       if (iconPreviewUrl) {
@@ -144,55 +168,85 @@ export default function Register({ onBack }: { onBack: () => void }) {
   }, [iconPreviewUrl]);
 
   return (
-    <div style={{ padding: 24, maxWidth: 400, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f7f7f7" }}>
-      <h1 style={{ textAlign: "center", marginBottom: 24, fontSize: 24, ...noSelectStyle }}>ユーザー一覧</h1>
-      <ul style={{ listStyle: "none", padding: 0, marginBottom: 24 }}>
-        {Array.isArray(users) && users.map((u) => {
-          const longPressHandlers = handleUserLongPress(u.id, u.name);
-          return (
-            <li
-              key={u.id}
-              style={{ display: "flex", alignItems: "center", marginBottom: 16, background: "#fff", borderRadius: 12, padding: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}
-              {...longPressHandlers}
-              onContextMenu={e => e.preventDefault()}
-              draggable={false}
-            >
-              <Image
-                src={u.iconFileName ? u.iconFileName : "/file.svg"}
-                alt={u.name}
-                width={40}
-                height={40}
+    <div
+      style={{
+        padding: 24,
+        maxWidth: 400,
+        margin: '0 auto',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#f7f7f7',
+      }}
+    >
+      <h1
+        style={{
+          textAlign: 'center',
+          marginBottom: 24,
+          fontSize: 24,
+          ...noSelectStyle,
+        }}
+      >
+        ユーザー一覧
+      </h1>
+      <ul style={{ listStyle: 'none', padding: 0, marginBottom: 24 }}>
+        {Array.isArray(users) &&
+          users.map(u => {
+            const longPressHandlers = handleUserLongPress(u.id, u.name);
+            return (
+              <li
+                key={u.id}
                 style={{
-                  verticalAlign: "middle",
-                  marginRight: 12,
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  background: "#eee",
-                  ...noSelectStyle,
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                  background: '#fff',
+                  borderRadius: 12,
+                  padding: 8,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                 }}
-              />
-              <span
+                {...longPressHandlers}
                 onContextMenu={e => e.preventDefault()}
-                style={{ fontSize: 18, ...noSelectStyle }}
-              >{u.name}</span>
-            </li>
-          );
-        })}
+                draggable={false}
+              >
+                <Image
+                  src={u.iconFileName ? u.iconFileName : '/file.svg'}
+                  alt={u.name}
+                  width={40}
+                  height={40}
+                  style={{
+                    verticalAlign: 'middle',
+                    marginRight: 12,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    background: '#eee',
+                    ...noSelectStyle,
+                  }}
+                />
+                <span
+                  onContextMenu={e => e.preventDefault()}
+                  style={{ fontSize: 18, ...noSelectStyle }}
+                >
+                  {u.name}
+                </span>
+              </li>
+            );
+          })}
       </ul>
       <hr
         onContextMenu={e => e.preventDefault()}
         style={{
-          border: "none",
-          borderTop: "2px solid #e0e0e0",
-          margin: "24px 0",
-          pointerEvents: "none",
+          border: 'none',
+          borderTop: '2px solid #e0e0e0',
+          margin: '24px 0',
+          pointerEvents: 'none',
           ...noSelectStyle,
         }}
       />
       <input
         type="text"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={e => setName(e.target.value)}
         placeholder="名前を入力"
         style={inputStyle}
       />
@@ -206,79 +260,82 @@ export default function Register({ onBack }: { onBack: () => void }) {
       <input
         type="password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={e => setPassword(e.target.value)}
         placeholder="パスワード"
         style={inputStyle}
       />
       <label
         htmlFor="icon-upload"
         style={{
-          display: "block",
+          display: 'block',
           marginBottom: 16,
-          padding: "12px 0",
-          border: "2px dashed #7bc062",
+          padding: '12px 0',
+          border: '2px dashed #7bc062',
           borderRadius: 8,
-          background: "#f0f8f4",
-          color: "#7bc062",
-          textAlign: "center",
-          cursor: "pointer",
+          background: '#f0f8f4',
+          color: '#7bc062',
+          textAlign: 'center',
+          cursor: 'pointer',
           fontWeight: 600,
           fontSize: 16,
           ...noSelectStyle,
         }}
       >
-        {iconFile ? `選択済み: ${iconFile.name}` : "アイコン画像を選択（必須）"}
+        {iconFile ? `選択済み: ${iconFile.name}` : 'アイコン画像を選択（必須）'}
         <input
           id="icon-upload"
           type="file"
           accept="image/*"
-          onChange={(e) => setIconFile(e.target.files ? e.target.files[0] : null)}
-          style={{ display: "none" }}
+          onChange={e => setIconFile(e.target.files ? e.target.files[0] : null)}
+          style={{ display: 'none' }}
         />
-        {/* 画像プレビュー表示 */}
+        {/* アイコン画像プレビュー */}
         {iconFile && (
-          <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
             <Image
-              src={iconPreviewUrl || "/file.svg"}
+              src={iconPreviewUrl || '/file.svg'}
               alt="icon preview"
               width={80}
               height={80}
               style={{
-                borderRadius: "50%",
-                objectFit: "cover",
-                background: "#eee",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                border: "2px solid #7bc062",
-                display: "block",
-                aspectRatio: "1 / 1",
+                borderRadius: '50%',
+                objectFit: 'cover',
+                background: '#eee',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                border: '2px solid #7bc062',
+                display: 'block',
+                aspectRatio: '1 / 1',
               }}
             />
           </div>
         )}
       </label>
       {errorMessage && (
-        <div style={{ color: "#d32f2f", marginBottom: 12, textAlign: "center", fontWeight: 600 }}>{errorMessage}</div>
+        <div
+          style={{
+            color: '#d32f2f',
+            marginBottom: 12,
+            textAlign: 'center',
+            fontWeight: 600,
+          }}
+        >
+          {errorMessage}
+        </div>
       )}
       <hr
         onContextMenu={e => e.preventDefault()}
         style={{
-          border: "none",
-          borderTop: "2px solid #e0e0e0",
-          margin: "24px 0",
-          pointerEvents: "none",
+          border: 'none',
+          borderTop: '2px solid #e0e0e0',
+          margin: '24px 0',
+          pointerEvents: 'none',
           ...noSelectStyle,
         }}
       />
-      <button
-        onClick={addUser}
-        style={primaryButtonStyle}
-      >
+      <button onClick={addUser} style={primaryButtonStyle}>
         追加
       </button>
-      <button
-        onClick={onBack}
-        style={secondaryButtonStyle}
-      >
+      <button onClick={onBack} style={secondaryButtonStyle}>
         ログイン画面に戻る
       </button>
     </div>
