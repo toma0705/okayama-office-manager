@@ -1,11 +1,11 @@
+/**
+ * ユーザー入室エンドポイント
+ * ユーザーを入室状態にマークし、入室時刻を記録
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// ユーザーの入室処理API（Userテーブルのentered, enteredAt, exitedAtを更新）
-export async function POST(
-  req: NextRequest,
-  context: any
-) {
+export async function POST(req: NextRequest, context: any) {
   const { id } = context.params;
   const userId = Number(id);
 
@@ -22,6 +22,7 @@ export async function POST(
         exitedAt: null,
       },
     });
+
     return NextResponse.json({ message: '入室しました' }, { status: 200 });
   } catch {
     return NextResponse.json({ error: '入室処理に失敗しました' }, { status: 500 });

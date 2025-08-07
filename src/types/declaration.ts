@@ -1,4 +1,10 @@
-// JWTのペイロード型定義
+/**
+ * Office Managerアプリケーションの型定義
+ */
+
+/**
+ * JWTペイロードの構造
+ */
 export type JwtPayload = {
   id: number;
   name: string;
@@ -7,14 +13,16 @@ export type JwtPayload = {
   exp?: number;
 };
 
-// 共通User型
+/**
+ * ユーザーエンティティの型
+ */
 export type User = {
   id: number;
   name: string;
   email: string;
   iconFileName: string;
-  entered: boolean; // 入室中かどうか
-  enteredAt?: string | null; // 入室時刻（ISO文字列 or null）を追加
-  exitedAt?: string | null; // 退室時刻（ISO文字列 or null）を追加
-  note?: string | null; // ユーザーノート（null許容）
+  entered: boolean;
+  enteredAt?: string | null;
+  exitedAt?: string | null;
+  note?: string | null;
 };

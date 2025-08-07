@@ -1,25 +1,32 @@
+/**
+ * パスワードリセット実行エンドポイント
+ * リセットトークンを検証してユーザーパスワードを更新
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
-// POST /api/users/reset-password/[token]
 export async function POST(req: NextRequest, context: any) {
   const { password } = await req.json();
   const { token } = context.params;
+
   if (!password || !token) {
     return NextResponse.json({ error: 'パスワードとトークンは必須です' }, { status: 400 });
   }
-  // トークンが有効かチェック
+
+  // リセットトークンの検証と有効期限チェック
   const user = await prisma.user.findFirst({
     where: {
       resetToken: token,
       resetTokenExpires: { gt: new Date() },
     },
   });
+
   if (!user) {
     return NextResponse.json({ error: 'トークンが無効または期限切れです' }, { status: 400 });
   }
-  // パスワードをハッシュ化して保存
+
+  // 新しいパスワードをハッシュ化してユーザーレコードを更新
   const hashed = await bcrypt.hash(password, 10);
   await prisma.user.update({
     where: { id: user.id },
@@ -29,5 +36,6 @@ export async function POST(req: NextRequest, context: any) {
       resetTokenExpires: null,
     },
   });
+
   return NextResponse.json({ message: 'パスワードをリセットしました' });
 }
