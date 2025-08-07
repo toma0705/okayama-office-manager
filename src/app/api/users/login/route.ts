@@ -7,6 +7,9 @@ import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
+// JWTトークンの有効期限（7日間）
+const JWT_EXPIRES_IN = '7d';
+
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
 
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
   const token = jwt.sign(
     { id: user.id, name: user.name, iconFileName: user.iconFileName },
     process.env.JWT_SECRET || 'secret',
-    { expiresIn: '7d' },
+    { expiresIn: JWT_EXPIRES_IN },
   );
 
   return NextResponse.json({ user, token });

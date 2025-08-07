@@ -1,12 +1,15 @@
+import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+
+// パスワードリセットトークンの有効期限（30分）
+const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000;
+
 /**
  * パスワードリセット申請エンドポイント
  * リセットトークンを生成してユーザーにリセットメールを送信
  */
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
-import nodemailer from 'nodemailer';
-
 export async function POST(req: NextRequest) {
   const { email } = await req.json();
 
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   // セキュアなランダムトークンを生成（32バイト）
   const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 1000 * 60 * 30); // 30分間の有効期限
+  const expires = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
 
   // データベースにリセットトークンを保存
   await prisma.user.update({
