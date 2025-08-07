@@ -6,6 +6,9 @@ import nodemailer from 'nodemailer';
 // パスワードリセットトークンの有効期限（30分）
 const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000;
 
+// SMTP標準ポート
+const SMTP_DEFAULT_PORT = 587;
+
 /**
  * パスワードリセット申請エンドポイント
  * リセットトークンを生成してユーザーにリセットメールを送信
@@ -19,8 +22,8 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { email } });
 
+  // ユーザーが存在しない場合でも成功メッセージを返す
   if (!user) {
-    // ユーザーが存在しない場合でも成功メッセージを返す（セキュリティのベストプラクティス）
     return NextResponse.json({
       message: 'パスワード再設定メールを送信しました',
     });
@@ -36,12 +39,12 @@ export async function POST(req: NextRequest) {
     data: { resetToken: token, resetTokenExpires: expires },
   });
 
-  // Send password reset email
+  // パスワードリセットメール送信
   const resetUrl = `${process.env.NEXT_PUBLIC_URL}/reset-password/${token}`;
 
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
+    port: Number(process.env.SMTP_PORT) || SMTP_DEFAULT_PORT,
     secure: false,
     auth: {
       user: process.env.SMTP_USER,

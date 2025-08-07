@@ -26,7 +26,6 @@ export async function warmupPrisma() {
   }
 
   try {
-    // 軽量なクエリでコネクション確立
     await prisma.$queryRaw`SELECT 1`;
     globalForPrisma.warmedUp = true;
     console.log('✅ Prisma Client warmed up successfully');
