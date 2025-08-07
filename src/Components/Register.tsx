@@ -10,6 +10,9 @@ import Image from 'next/image';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// 開発環境でのみユーザー削除機能を有効化
+const ENABLE_USER_DELETE = process.env.NODE_ENV === 'development';
+
 // テキスト選択無効化スタイル
 const noSelectStyle = {
   userSelect: 'none' as const,
@@ -134,8 +137,13 @@ export default function Register({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // ユーザー長押し削除機能（完成したら消す）
+  // ユーザー長押し削除機能（開発環境のみ）
   const handleUserLongPress = (userId: number, userName: string) => {
+    // 本番環境では削除機能を無効化
+    if (!ENABLE_USER_DELETE) {
+      return {};
+    }
+
     let timer: NodeJS.Timeout;
     const onMouseDown = () => {
       timer = setTimeout(async () => {
@@ -200,6 +208,11 @@ export default function Register({ onBack }: { onBack: () => void }) {
         }}
       >
         ユーザー一覧
+        {ENABLE_USER_DELETE && (
+          <span style={{ fontSize: 12, color: '#ff6b6b', display: 'block', marginTop: 8 }}>
+            ※開発環境: 長押しで削除可能
+          </span>
+        )}
       </h1>
       <ul style={{ listStyle: 'none', padding: 0, marginBottom: 24 }}>
         {Array.isArray(users) &&
