@@ -13,8 +13,9 @@ type Props = {
   entered: boolean;
   onEnter: () => void;
   onExit: () => void;
-  enteredUsers: User[]; // 入室中のユーザー一覧
+  enteredUsers: User[];
   onReload: () => void;
+  isUpdating: boolean;
 };
 
 const enterExitButtonStyle = {
@@ -33,6 +34,7 @@ export default function HomeForm({
   onExit,
   enteredUsers,
   onReload,
+  isUpdating,
 }: Props) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -139,7 +141,7 @@ export default function HomeForm({
             position: 'fixed',
             top: 0,
             right: 0,
-            width: '50vw', // スマホで画面の半分
+            width: '50vw',
             maxWidth: 360,
             minWidth: 220,
             height: '100vh',
@@ -159,7 +161,7 @@ export default function HomeForm({
               position: 'absolute',
               top: 16,
               right: 24,
-              fontSize: 56, // 2倍サイズ
+              fontSize: 56,
               background: 'none',
               border: 'none',
               cursor: 'pointer',
@@ -258,17 +260,34 @@ export default function HomeForm({
         }}
       >
         {!entered ? (
-          <button onClick={handleEnter} style={{ ...enterExitButtonStyle, background: '#7bc062' }}>
-            入室
+          <button
+            onClick={handleEnter}
+            disabled={isUpdating}
+            style={{
+              ...enterExitButtonStyle,
+              background: isUpdating ? '#a5d6a7' : '#7bc062',
+              opacity: isUpdating ? 0.7 : 1,
+              cursor: isUpdating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isUpdating ? '入室中...' : '入室'}
           </button>
         ) : (
-          <button onClick={onExit} style={{ ...enterExitButtonStyle, background: '#e53935' }}>
-            退室
+          <button
+            onClick={onExit}
+            disabled={isUpdating}
+            style={{
+              ...enterExitButtonStyle,
+              background: isUpdating ? '#ffab91' : '#e53935',
+              opacity: isUpdating ? 0.7 : 1,
+              cursor: isUpdating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isUpdating ? '退室中...' : '退室'}
           </button>
         )}
       </div>
-
-      {/* テーブル上のアイコンと名前は非表示にする（削除） */}
+      {/* 入室中ユーザー一覧のヘッダー */}
       <div
         style={{
           textAlign: 'center',
@@ -463,13 +482,13 @@ export default function HomeForm({
   );
 }
 
+// 日付と時間をフォーマットするヘルパー関数
 function formatDateTime(dt: string | Date | undefined): string {
   if (!dt) return '-';
   const date = typeof dt === 'string' ? new Date(dt) : dt;
   if (isNaN(date.getTime())) return '-';
   const pad = (n: number) => n.toString().padStart(2, '0');
-  // 年と秒を省略し、月/日 時:分 のみ表示
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(
-    date.getHours(),
-  )}:${pad(date.getMinutes())}`;
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+    date.getMinutes(),
+  )}`;
 }
