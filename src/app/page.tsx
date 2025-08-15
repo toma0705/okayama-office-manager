@@ -12,10 +12,10 @@ import type { User } from '@/types/declaration';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const Home = () => {
-  // 状態管理
   const [user, setUser] = useState<User | null>(null);
   const [entered, setEntered] = useState(false);
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
   const router = useRouter();
 
   /**
@@ -50,29 +50,65 @@ const Home = () => {
   }, [fetchUserAndEnteredUsers]);
 
   /**
-   * ユーザー入室処理
+   * ユーザー入室処理（楽観的UI）
    */
   const onEnter = async () => {
     const token = localStorage.getItem('token');
-    if (!token || !user) return;
-    await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchUserAndEnteredUsers();
+    if (!token || !user || isUpdating) return;
+
+    setIsUpdating(true);
+    setEntered(true);
+    setEnteredUsers(prev => [...prev, { ...user, entered: true }]);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('入室処理に失敗しました');
+      }
+
+      fetchUserAndEnteredUsers();
+    } catch (error) {
+      setEntered(false);
+      setEnteredUsers(prev => prev.filter(u => u.id !== user.id));
+      console.error('入室エラー:', error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   /**
-   * ユーザー退室処理
+   * ユーザー退室処理（楽観的UI）
    */
   const onExit = async () => {
     const token = localStorage.getItem('token');
-    if (!token || !user) return;
-    await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchUserAndEnteredUsers();
+    if (!token || !user || isUpdating) return;
+
+    setIsUpdating(true);
+    setEntered(false);
+    setEnteredUsers(prev => prev.filter(u => u.id !== user.id));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('退室処理に失敗しました');
+      }
+
+      fetchUserAndEnteredUsers();
+    } catch (error) {
+      setEntered(true);
+      setEnteredUsers(prev => [...prev, { ...user, entered: true }]);
+      console.error('退室エラー:', error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -84,6 +120,7 @@ const Home = () => {
         onExit={onExit}
         enteredUsers={enteredUsers}
         onReload={fetchUserAndEnteredUsers}
+        isUpdating={isUpdating}
       />
     </div>
   );
