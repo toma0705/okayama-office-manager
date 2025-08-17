@@ -21,28 +21,25 @@ const Home = () => {
   /**
    * ユーザープロフィールと現在入室中ユーザー一覧を取得
    */
-  const fetchUserAndEnteredUsers = useCallback(() => {
+  const fetchUserAndEnteredUsers = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
       return;
     }
-    fetch(`${API_BASE_URL}/users/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then(data => {
-        setUser(data.user);
-        setEnteredUsers(data.enteredUsers || []);
-        setEntered(data.user.entered);
-      })
-      .catch(() => {
-        localStorage.removeItem('token');
-        router.push('/login');
+    try {
+      const res = await fetch(`${API_BASE_URL}/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setUser(data.user);
+      setEnteredUsers(data.enteredUsers || []);
+      setEntered(data.user.entered);
+    } catch (e) {
+      localStorage.removeItem('token');
+      router.push('/login');
+    }
   }, [router]);
 
   useEffect(() => {
