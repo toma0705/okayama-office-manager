@@ -139,10 +139,7 @@ export default function Register({ onBack }: { onBack: () => void }) {
 
   // ユーザー長押し削除機能（開発環境のみ）
   const handleUserLongPress = (userId: number, userName: string) => {
-    // 本番環境では削除機能を無効化
-    if (!ENABLE_USER_DELETE) {
-      return {};
-    }
+    if (!ENABLE_USER_DELETE) return {};
 
     let timer: NodeJS.Timeout;
     const onMouseDown = () => {

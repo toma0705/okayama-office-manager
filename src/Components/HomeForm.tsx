@@ -48,8 +48,6 @@ export default function HomeForm({
   // 現在編集中のユーザーID（自分のノートのみ編集可能）
   const [editNoteUserId, setEditNoteUserId] = useState<number | null>(null);
 
-  const handleEnter = () => onEnter();
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     onExit();
@@ -69,10 +67,11 @@ export default function HomeForm({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note }),
     });
-    onReload(); // 編集後に最新状態を取得
-    setEditNoteUserId(null); // 編集モードを終了
+    onReload();
+    setEditNoteUserId(null);
   };
 
+  // アカウント削除処理
   const handleDeleteAccount = async () => {
     if (!user) return;
     if (!window.confirm('本当にアカウントを削除しますか？この操作は元に戻せません。')) return;
@@ -134,6 +133,60 @@ export default function HomeForm({
         </div>
       )}
 
+      {/* 入退室状態表示 */}
+      <div
+        style={{
+          textAlign: 'center',
+          marginBottom: 32,
+          marginTop: 8,
+          fontSize: 32,
+          fontWeight: 700,
+          color: entered ? '#7bc062' : '#e53935',
+          letterSpacing: 2,
+          transition: 'all 0.2s',
+        }}
+      >
+        {entered ? '入室中' : '退出中'}
+      </div>
+      {/* 入退室ボタン */}
+      <div
+        style={{
+          height: 56,
+          margin: '0 auto 24px auto',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        {!entered ? (
+          <button
+            onClick={onEnter}
+            disabled={isUpdating}
+            style={{
+              ...enterExitButtonStyle,
+              background: isUpdating ? '#a5d6a7' : '#7bc062',
+              opacity: isUpdating ? 0.7 : 1,
+              cursor: isUpdating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            入室
+          </button>
+        ) : (
+          <button
+            onClick={onExit}
+            disabled={isUpdating}
+            style={{
+              ...enterExitButtonStyle,
+              background: isUpdating ? '#ffab91' : '#e53935',
+              opacity: isUpdating ? 0.7 : 1,
+              cursor: isUpdating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            退室
+          </button>
+        )}
+      </div>
+
       {/* サイドバー */}
       {sidebarOpen && user && (
         <div
@@ -161,16 +214,20 @@ export default function HomeForm({
               position: 'absolute',
               top: 16,
               right: 24,
-              fontSize: 56,
+              width: 48,
+              height: 48,
               background: 'none',
               border: 'none',
               cursor: 'pointer',
               color: '#888',
               lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
             aria-label="サイドバーを閉じる"
           >
-            ×{/*この×ボタン,画像にすべき？*/}
+            <Image src="/icons/close.png" alt="" width={32} height={32} aria-hidden />
           </button>
           <div
             style={{
@@ -233,72 +290,6 @@ export default function HomeForm({
           </button>
         </div>
       )}
-
-      {/* 入退室状態表示 */}
-      <div
-        style={{
-          textAlign: 'center',
-          marginBottom: 32,
-          marginTop: 8,
-          fontSize: 32,
-          fontWeight: 700,
-          color: entered ? '#7bc062' : '#e53935',
-          letterSpacing: 2,
-          transition: 'all 0.2s',
-        }}
-      >
-        {entered ? '入室中' : '退出中'}
-      </div>
-      {/* 入退室ボタン */}
-      <div
-        style={{
-          height: 56,
-          margin: '0 auto 24px auto',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        {!entered ? (
-          <button
-            onClick={handleEnter}
-            disabled={isUpdating}
-            style={{
-              ...enterExitButtonStyle,
-              background: isUpdating ? '#a5d6a7' : '#7bc062',
-              opacity: isUpdating ? 0.7 : 1,
-              cursor: isUpdating ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isUpdating ? '入室中...' : '入室'}
-          </button>
-        ) : (
-          <button
-            onClick={onExit}
-            disabled={isUpdating}
-            style={{
-              ...enterExitButtonStyle,
-              background: isUpdating ? '#ffab91' : '#e53935',
-              opacity: isUpdating ? 0.7 : 1,
-              cursor: isUpdating ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isUpdating ? '退室中...' : '退室'}
-          </button>
-        )}
-      </div>
-      {/* 入室中ユーザー一覧のヘッダー */}
-      <div
-        style={{
-          textAlign: 'center',
-          marginBottom: 24,
-          minHeight: 112,
-          transition: 'opacity 0.2s',
-          opacity: 0,
-          visibility: 'hidden',
-          display: 'none',
-        }}
-      />
 
       {/* 入室中ユーザー一覧テーブル */}
       <div
