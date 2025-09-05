@@ -39,17 +39,17 @@ export default function ResetPasswordTokenPage() {
 
   return (
     <CardLayout>
-      <h2 className="text-center text-[28px] font-bold mb-6">新しいパスワード設定</h2>
+      <h2 className='text-center text-[28px] font-bold mb-6'>新しいパスワード設定</h2>
       <form onSubmit={handleSubmit}>
-        <label className="block font-semibold mb-2">新しいパスワード</label>
+        <label className='block font-semibold mb-2'>新しいパスワード</label>
         <Input
-          type="password"
+          type='password'
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
-          className="mb-5"
+          className='mb-5'
         />
-        <Button type="submit" disabled={loading} fullWidth>
+        <Button type='submit' disabled={loading} fullWidth>
           {loading ? 'リセット中...' : 'パスワードをリセット'}
         </Button>
       </form>
@@ -62,8 +62,8 @@ export default function ResetPasswordTokenPage() {
           {message}
         </div>
       )}
-      <div className="mt-8 text-center">
-        <a href="/login" className="text-[#7bc062] underline font-semibold">
+      <div className='mt-8 text-center'>
+        <a href='/login' className='text-[#7bc062] underline font-semibold'>
           ログイン画面へ戻る
         </a>
       </div>

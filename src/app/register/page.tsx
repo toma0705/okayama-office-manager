@@ -85,64 +85,64 @@ export default function RegisterPage() {
   };
 
   return (
-    <PageContainer className="justify-start">
-      <h1 className="text-center mb-6 text-2xl">ユーザー一覧</h1>
-      <ul className="list-none p-0 mb-6">
+    <PageContainer className='justify-start'>
+      <h1 className='text-center mb-6 text-2xl'>ユーザー一覧</h1>
+      <ul className='list-none p-0 mb-6'>
         {users.map(u => (
-          <li key={u.id} className="flex items-center gap-3 mb-3 bg-white rounded-xl p-2 shadow-sm">
+          <li key={u.id} className='flex items-center gap-3 mb-3 bg-white rounded-xl p-2 shadow-sm'>
             <Avatar alt={u.name} src={u.iconFileName} size={40} />
-            <span className="text-lg">{u.name}</span>
+            <span className='text-lg'>{u.name}</span>
           </li>
         ))}
       </ul>
 
       <Input
-        placeholder="名前を入力"
+        placeholder='名前を入力'
         value={name}
         onChange={e => setName(e.target.value)}
-        className="mb-4"
+        className='mb-4'
       />
       <Input
-        placeholder="メールアドレス"
-        type="email"
+        placeholder='メールアドレス'
+        type='email'
         value={email}
         onChange={e => setEmail(e.target.value)}
-        className="mb-4"
+        className='mb-4'
       />
       <Input
-        placeholder="パスワード"
-        type="password"
+        placeholder='パスワード'
+        type='password'
         value={password}
         onChange={e => setPassword(e.target.value)}
-        className="mb-4"
+        className='mb-4'
       />
 
       <label
-        htmlFor="icon-upload"
-        className="block mb-4 py-3 border-2 border-dashed border-[#7bc062] rounded-lg bg-[#f0f8f4] text-[#7bc062] text-center cursor-pointer font-semibold"
+        htmlFor='icon-upload'
+        className='block mb-4 py-3 border-2 border-dashed border-[#7bc062] rounded-lg bg-[#f0f8f4] text-[#7bc062] text-center cursor-pointer font-semibold'
       >
         {iconFile ? `選択済み: ${iconFile.name}` : 'アイコン画像を選択（必須）'}
         <input
-          id="icon-upload"
-          type="file"
-          accept="image/*"
+          id='icon-upload'
+          type='file'
+          accept='image/*'
           onChange={e => setIconFile(e.target.files ? e.target.files[0] : null)}
-          className="hidden"
+          className='hidden'
         />
         {iconFile && (
-          <div className="mt-4 flex justify-center">
-            <Avatar alt="icon preview" src={iconPreviewUrl} size={80} />
+          <div className='mt-4 flex justify-center'>
+            <Avatar alt='icon preview' src={iconPreviewUrl} size={80} />
           </div>
         )}
       </label>
       {errorMessage && (
-        <div className="text-[#d32f2f] mb-3 text-center font-semibold">{errorMessage}</div>
+        <div className='text-[#d32f2f] mb-3 text-center font-semibold'>{errorMessage}</div>
       )}
 
-      <Button onClick={addUser} className="mb-2">
+      <Button onClick={addUser} className='mb-2'>
         追加
       </Button>
-      <Button variant="secondary" onClick={() => router.push('/login')}>
+      <Button variant='secondary' onClick={() => router.push('/login')}>
         ログイン画面に戻る
       </Button>
     </PageContainer>

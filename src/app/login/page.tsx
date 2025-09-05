@@ -52,26 +52,26 @@ export default function LoginPage() {
   return (
     <PageContainer>
       <Input
-        type="email"
+        type='email'
         value={email}
         onChange={e => setEmail(e.target.value)}
-        placeholder="メールアドレス"
-        className="mb-4"
+        placeholder='メールアドレス'
+        className='mb-4'
       />
       <Input
-        type="password"
+        type='password'
         value={password}
         onChange={e => setPassword(e.target.value)}
-        placeholder="パスワード"
-        className="mb-4"
+        placeholder='パスワード'
+        className='mb-4'
       />
-      <Button onClick={handleLogin} disabled={loading} className="mb-3">
+  <Button onClick={handleLogin} disabled={loading} className='mb-3'>
         {loading ? 'ログイン中...' : 'ログイン'}
       </Button>
-      <Button variant="secondary" onClick={() => router.push('/register')}>
+  <Button variant='secondary' onClick={() => router.push('/register')}>
         新規登録
       </Button>
-      <LinkButton href="/reset-password" center className="mt-3">
+  <LinkButton href='/reset-password' center className='mt-3'>
         パスワードをお忘れの方はこちら
       </LinkButton>
     </PageContainer>

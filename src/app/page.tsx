@@ -74,22 +74,22 @@ const Home = () => {
   };
 
   return (
-    <PageContainer className="items-start">
+    <PageContainer className='items-start'>
       {user && (
         <button
-          className="absolute top-4 right-4 w-[72px] h-[72px] z-20 cursor-pointer flex items-center justify-center"
+          className='absolute top-4 right-4 w-[72px] h-[72px] z-20 cursor-pointer flex items-center justify-center'
           onClick={() => setSidebarOpen(true)}
-          aria-label="ユーザメニュー"
+          aria-label='ユーザメニュー'
         >
           {user.iconFileName ? (
             <Avatar
               alt={user.name}
               src={user.iconFileName}
               size={72}
-              className="border-2 border-[#7bc062]"
+              className='border-2 border-[#7bc062]'
             />
           ) : (
-            <div className="w-[72px] h-[72px] rounded-full border-2 border-[#7bc062] bg-gray-200" />
+            <div className='w-[72px] h-[72px] rounded-full border-2 border-[#7bc062] bg-gray-200' />
           )}
         </button>
       )}

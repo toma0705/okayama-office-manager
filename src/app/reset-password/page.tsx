@@ -36,17 +36,17 @@ export default function ResetPasswordPage() {
 
   return (
     <CardLayout>
-      <h2 className="text-center text-[28px] font-bold mb-6">パスワード再設定</h2>
+      <h2 className='text-center text-[28px] font-bold mb-6'>パスワード再設定</h2>
       <form onSubmit={handleSubmit}>
-        <label className="block font-semibold mb-2">登録メールアドレス</label>
+        <label className='block font-semibold mb-2'>登録メールアドレス</label>
         <Input
-          type="email"
+          type='email'
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
-          className="mb-5"
+          className='mb-5'
         />
-        <Button type="submit" disabled={loading} fullWidth>
+        <Button type='submit' disabled={loading} fullWidth>
           {loading ? '送信中...' : '再設定メールを送信'}
         </Button>
       </form>
@@ -59,8 +59,8 @@ export default function ResetPasswordPage() {
           {message}
         </div>
       )}
-      <div className="mt-8 text-center">
-        <a href="/login" className="text-[#7bc062] underline font-semibold">
+      <div className='mt-8 text-center'>
+        <a href='/login' className='text-[#7bc062] underline font-semibold'>
           ログイン画面へ戻る
         </a>
       </div>
