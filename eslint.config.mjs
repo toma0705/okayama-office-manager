@@ -10,6 +10,7 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  { ignores: ['src/generated/**'] },
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {
@@ -22,7 +23,6 @@ const eslintConfig = [
       '@typescript-eslint/no-unnecessary-type-constraint': 'off',
       '@typescript-eslint/no-wrapper-object-types': 'off',
       '@typescript-eslint/no-unsafe-function-type': 'off',
-      // 統一: 文字列はシングルクォート、JSX属性もシングルクォート
       quotes: ['error', 'single', { avoidEscape: true }],
       'jsx-quotes': ['error', 'prefer-single'],
     },
