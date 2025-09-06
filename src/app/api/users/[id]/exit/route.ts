@@ -6,8 +6,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest, context: any) {
-  const params = context.params;
-  const userId = Number(params.id);
+  const { params } = context;
+  const { id } = await params;
+  const userId = Number(id);
 
   if (isNaN(userId)) {
     return NextResponse.json({ error: '不正なIDです' }, { status: 400 });

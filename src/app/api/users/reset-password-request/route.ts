@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     subject: '【Office Manager】パスワード再設定のご案内',
     text: `下記URLから30分以内にパスワードを再設定してください
 ${resetUrl}`,
-    html: `<p>下記URLから30分以内にパスワードを再設定してください。</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+    html: `<p>下記URLから30分以内にパスワードを再設定してください。</p><p><a href='${resetUrl}'>${resetUrl}</a></p>`,
   });
 
   return NextResponse.json({ message: 'パスワード再設定メールを送信しました' });

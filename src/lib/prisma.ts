@@ -21,15 +21,15 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  */
 export async function warmupPrisma() {
   if (globalForPrisma.warmedUp) {
-    console.log('✅ Prisma Client already warmed up (cached)');
+    console.log('Prisma クライアントは既にウォームアップ済み');
     return;
   }
 
   try {
     await prisma.$queryRaw`SELECT 1`;
     globalForPrisma.warmedUp = true;
-    console.log('✅ Prisma Client warmed up successfully');
+    console.log('Prisma クライアントのウォームアップに成功しました');
   } catch (error) {
-    console.warn('⚠️ Prisma warmup failed:', error);
+    console.warn('Prisma のウォームアップに失敗しました:', error);
   }
 }

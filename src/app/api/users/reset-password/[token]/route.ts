@@ -8,7 +8,8 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest, context: any) {
   const { password } = await req.json();
-  const { token } = context.params;
+  const { params } = context;
+  const { token } = await params;
 
   if (!password || !token) {
     return NextResponse.json({ error: 'パスワードとトークンは必須です' }, { status: 400 });

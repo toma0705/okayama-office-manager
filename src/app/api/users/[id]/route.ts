@@ -13,9 +13,10 @@ import path from 'path';
  * 指定されたIDのユーザー情報を取得
  */
 export async function GET(_: NextRequest, context: any) {
-  const { params } = await context;
+  const { params } = context;
+  const { id } = await params;
   const user = await prisma.user.findUnique({
-    where: { id: Number(params.id) },
+    where: { id: Number(id) },
   });
 
   if (!user) {
@@ -30,8 +31,9 @@ export async function GET(_: NextRequest, context: any) {
  * プロフィール画像ファイルも含めて削除
  */
 export async function DELETE(_: NextRequest, context: any) {
-  const { params } = await context;
-  const userId = Number(params.id);
+  const { params } = context;
+  const { id } = await params;
+  const userId = Number(id);
 
   try {
     // 削除前にユーザー情報を取得（プロフィール画像クリーンアップのため）
@@ -60,8 +62,9 @@ export async function DELETE(_: NextRequest, context: any) {
  * ユーザーノートの更新
  */
 export async function PATCH(req: NextRequest, context: any) {
-  const { params } = await context;
-  const id = Number(params.id);
+  const { params } = context;
+  const { id: idStr } = await params;
+  const id = Number(idStr);
   const { note } = await req.json();
 
   try {
