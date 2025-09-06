@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { Avatar } from '@/Components/ui/Avatar';
 import type { User } from '@/types/declaration';
 
@@ -18,7 +19,13 @@ export function UserSidebar({ user, onClose, onLogout, onDelete }: Props) {
         className='absolute top-4 right-6 text-5xl bg-transparent border-0 cursor-pointer text-gray-500 leading-none'
         aria-label='サイドバーを閉じる'
       >
-        ×
+        <Image
+          src='/icons/close.png'
+          alt='閉じる'
+          width={24}
+          height={24}
+          className='block w-6 h-6'
+        />
       </button>
       <div className='flex items-center mt-8 mb-8'>
         <Avatar src={user.iconFileName} alt={user.name} size={64} />
