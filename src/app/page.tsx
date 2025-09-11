@@ -17,8 +17,6 @@ import { EnteredUsersTable } from '@/Components/home/EnteredUsersTable';
 import { UserSidebar } from '@/Components/home/UserSidebar';
 import { API_BASE_URL } from '@/lib/config';
 
-const API_BASE_URL_FALLBACK = process.env.NEXT_PUBLIC_API_URL;
-
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
   const [entered, setEntered] = useState(false);
@@ -34,7 +32,7 @@ const Home = () => {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/me`, {
+      const res = await fetch(`${API_BASE_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('failed to fetch');
@@ -62,7 +60,7 @@ const Home = () => {
     setIsPending(true);
     setEntered(true);
     try {
-      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/enter`, {
+      const res = await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -83,7 +81,7 @@ const Home = () => {
     setIsPending(true);
     setEntered(false);
     try {
-      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/exit`, {
+      const res = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
