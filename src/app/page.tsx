@@ -23,6 +23,8 @@ const Home = () => {
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | 'enter' | 'exit'>(null);
+  const [apiSuccess, setApiSuccess] = useState(false);
   const router = useRouter();
 
   const fetchUserAndEnteredUsers = useCallback(async () => {
@@ -58,6 +60,7 @@ const Home = () => {
     const prev = entered;
     if (isPending) return;
     setIsPending(true);
+    setPendingAction('enter');
     setEntered(true);
     try {
       const res = await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
@@ -65,11 +68,13 @@ const Home = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('enter failed');
+      setApiSuccess(true);
       fetchUserAndEnteredUsers();
     } catch (e) {
       setEntered(prev);
-    } finally {
       setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
     }
   };
 
@@ -79,6 +84,7 @@ const Home = () => {
     const prev = entered;
     if (isPending) return;
     setIsPending(true);
+    setPendingAction('exit');
     setEntered(false);
     try {
       const res = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
@@ -86,13 +92,30 @@ const Home = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('exit failed');
+      setApiSuccess(true);
       fetchUserAndEnteredUsers();
     } catch (e) {
       setEntered(prev);
-    } finally {
       setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
     }
   };
+
+  useEffect(() => {
+    if (!isPending || !user || !pendingAction) return;
+    const exists = enteredUsers.some(u => u.id === user.id);
+    if (pendingAction === 'enter' && apiSuccess && exists) {
+      setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
+    }
+    if (pendingAction === 'exit' && apiSuccess && !exists) {
+      setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
+    }
+  }, [isPending, pendingAction, enteredUsers, user, apiSuccess]);
 
   return (
     <PageContainer className='items-start'>
