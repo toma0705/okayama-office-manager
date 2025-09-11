@@ -24,6 +24,7 @@ const Home = () => {
   const [entered, setEntered] = useState(false);
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
   const fetchUserAndEnteredUsers = useCallback(async () => {
@@ -56,21 +57,43 @@ const Home = () => {
   const onEnter = async () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
-    await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/enter`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchUserAndEnteredUsers();
+    const prev = entered;
+    if (isPending) return;
+    setIsPending(true);
+    setEntered(true);
+    try {
+      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/enter`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('enter failed');
+      fetchUserAndEnteredUsers();
+    } catch (e) {
+      setEntered(prev);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const onExit = async () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
-    await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/exit`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchUserAndEnteredUsers();
+    const prev = entered;
+    if (isPending) return;
+    setIsPending(true);
+    setEntered(false);
+    try {
+      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/exit`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('exit failed');
+      fetchUserAndEnteredUsers();
+    } catch (e) {
+      setEntered(prev);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -116,7 +139,7 @@ const Home = () => {
       )}
 
       <StatusTitle entered={entered} />
-      <EnterExitButtons entered={entered} onEnter={onEnter} onExit={onExit} />
+      <EnterExitButtons entered={entered} onEnter={onEnter} onExit={onExit} disabled={isPending} />
       <EnteredUsersTable
         me={user}
         users={enteredUsers}
