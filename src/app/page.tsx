@@ -17,14 +17,14 @@ import { EnteredUsersTable } from '@/Components/home/EnteredUsersTable';
 import { UserSidebar } from '@/Components/home/UserSidebar';
 import { API_BASE_URL } from '@/lib/config';
 
-const API_BASE_URL_FALLBACK = process.env.NEXT_PUBLIC_API_URL;
-
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
   const [entered, setEntered] = useState(false);
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | 'enter' | 'exit'>(null);
+  const [apiSuccess, setApiSuccess] = useState(false);
   const router = useRouter();
 
   const fetchUserAndEnteredUsers = useCallback(async () => {
@@ -34,7 +34,7 @@ const Home = () => {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/me`, {
+      const res = await fetch(`${API_BASE_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('failed to fetch');
@@ -60,18 +60,21 @@ const Home = () => {
     const prev = entered;
     if (isPending) return;
     setIsPending(true);
+    setPendingAction('enter');
     setEntered(true);
     try {
-      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/enter`, {
+      const res = await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('enter failed');
+      setApiSuccess(true);
       fetchUserAndEnteredUsers();
     } catch (e) {
       setEntered(prev);
-    } finally {
       setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
     }
   };
 
@@ -81,20 +84,38 @@ const Home = () => {
     const prev = entered;
     if (isPending) return;
     setIsPending(true);
+    setPendingAction('exit');
     setEntered(false);
     try {
-      const res = await fetch(`${API_BASE_URL || API_BASE_URL_FALLBACK}/users/${user.id}/exit`, {
+      const res = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('exit failed');
+      setApiSuccess(true);
       fetchUserAndEnteredUsers();
     } catch (e) {
       setEntered(prev);
-    } finally {
       setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
     }
   };
+
+  useEffect(() => {
+    if (!isPending || !user || !pendingAction) return;
+    const exists = enteredUsers.some(u => u.id === user.id);
+    if (pendingAction === 'enter' && apiSuccess && exists) {
+      setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
+    }
+    if (pendingAction === 'exit' && apiSuccess && !exists) {
+      setIsPending(false);
+      setPendingAction(null);
+      setApiSuccess(false);
+    }
+  }, [isPending, pendingAction, enteredUsers, user, apiSuccess]);
 
   return (
     <PageContainer className='items-start'>

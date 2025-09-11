@@ -13,8 +13,7 @@ import { Input } from '@/Components/ui/Input';
 import { Button } from '@/Components/ui/Button';
 import { Avatar } from '@/Components/ui/Avatar';
 import type { User } from '@/types/declaration';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+import { API_BASE_URL } from '@/lib/config';
 
 export default function RegisterPage() {
   const router = useRouter();
