@@ -123,3 +123,94 @@ _エンジニアリングを行う学生団体(playgroud)のメンバーとし�
 - **Vercel 自動デプロイ**: Git push トリガーでの本番環境自動更新
 - **プレビュー環境**: プルリクエスト毎の独立した検証環境
 - **ゼロダウンタイム**: ローリングデプロイによる無停止更新
+
+## テスト戦略
+
+本プロジェクトでは **Jest (@latest v30)** を利用したユニットテスト中心の構成。
+
+### 対象範囲
+
+- `src/app/api/**/route.ts` : API Route の純粋関数性を活かし **NextRequest/NextResponse** を直接呼び出す形でテスト
+- `src/lib` : Prisma クライアントラッパ / 設定モジュール
+- `src/utils` : 日付ユーティリティなど副作用を持たない関数群
+
+### モック戦略
+
+- **Prisma**: `jest.mock('@/lib/prisma')` で `prisma.user.findUnique` などを差し替え DB 依存を排除
+- **JWT**: `jsonwebtoken.verify` をモックしトークン検証分岐を網羅
+- **Warmup / Singleton**: グローバルキャッシュ挙動をテストし再接続抑制を検証
+
+### カバレッジ
+
+`npm test` 実行時に `--coverage` で収集し、`coverage/` に HTML / lcov / text を出力。主な対象は:
+
+```
+src/utils/**/*
+src/app/api/**/*
+src/lib/**/*
+```
+
+### 実行コマンド
+
+```
+npm test
+npm run test:watch
+```
+
+---
+
+## CI (GitHub Actions) 詳細
+
+ワークフロー: `.github/workflows/test.yml`
+
+### トリガー
+
+- `pull_request` → `main` ブランチ
+- `push` → `main`
+
+### 実行ステップ概要
+
+1. チェックアウト
+2. Node 20 セットアップ（npm キャッシュ利用）
+3. `npm ci --include=dev` で prod+dev 依存を完全再現
+4. PostgreSQL(16) サービス起動（ヘルスチェックで待機）
+5. `prisma generate` → クライアント生成
+6. `prisma migrate deploy` → 本番互換のマイグレーション適用
+7. `npm test -- --ci --reporters=default --reporters=jest-junit`
+8. 成功時: `coverage/` をアーティファクト保存
+9. 常時: `junit.xml` (jest-junit) を保存
+
+### 成果物
+
+- `coverage-report` (HTML/LCOV)
+- `junit-report` (CI 上のテスト可視化用)
+
+### 設計意図
+
+- DB を **本物(PostgreSQL)** で立ち上げ、モックに依存しないマイグレーション健全性を早期検知
+- `jest-junit` により将来的な CI ダッシュボード / PR コメント連携を容易化
+- lockfile 整合性を保つため `npm ci` を採用（依存追加時は lock 更新後に再実行）
+
+---
+
+## 楽観的 UI (Optimistic UI) 実装
+
+入退室ボタン操作で即時 UX を向上させるため、API 完了を待たずフロント状態を先行更新。
+
+### 流れ (例: 入室)
+
+1. `entered` を即 `true` にセット / `isPending` と `pendingAction='enter'` を設定
+2. API `POST /users/{id}/enter` 実行
+3. 成功時: サーバー再取得 (`fetchUserAndEnteredUsers`) → 実際の入室一覧に自分が存在するか判定
+4. 一致したら `isPending` / `pendingAction` を解除
+5. 失敗時: 事前に保存した `prev` を使って `entered` をロールバック
+
+### 退室も同様
+
+- 退室時は一旦 `entered=false` に設定 → API 成功後、一覧から自分が消えたことを確認して確定
+
+### エッジケース対応
+
+- 連打防止: `isPending` が true の間はボタン無効化
+- サーバー結果と食い違い時: 監視 `useEffect` で `enteredUsers` 差異を検出し安全に確定/解除
+- エラー時: 例外キャッチで即ロールバック + フラグ解除
