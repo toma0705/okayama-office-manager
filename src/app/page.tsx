@@ -68,6 +68,13 @@ const Home = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('enter failed');
+
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: user.name, status: '入室' }),
+      });
+
       setApiSuccess(true);
       fetchUserAndEnteredUsers();
     } catch (e) {
@@ -92,6 +99,13 @@ const Home = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('exit failed');
+
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: user.name, status: '退室' }),
+      });
+
       setApiSuccess(true);
       fetchUserAndEnteredUsers();
     } catch (e) {
