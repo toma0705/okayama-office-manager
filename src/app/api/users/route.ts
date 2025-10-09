@@ -104,7 +104,6 @@ export async function POST(req: NextRequest) {
           Key: key,
           Body: buffer,
           ContentType: icon.type,
-          // ACL設定は非対応のS3バケットのため削除済み
         }),
       );
       imageUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
