@@ -57,7 +57,13 @@ export async function POST(req: NextRequest) {
     const password = formData.get('password')?.toString();
     const icon = formData.get('icon');
 
-    if (!name || !email || !password || !icon || !(icon instanceof File)) {
+    // Node.jsテスト環境のMockFile対応: File/Blobの型判定を緩和
+    const isFileLike = (f: any) =>
+      f &&
+      typeof f === 'object' &&
+      typeof f.arrayBuffer === 'function' &&
+      typeof f.name === 'string';
+    if (!name || !email || !password || !icon || !isFileLike(icon)) {
       return NextResponse.json(
         { error: 'name, email, password, icon は必須です' },
         { status: 400 },
@@ -74,9 +80,18 @@ export async function POST(req: NextRequest) {
     }
 
     // プロフィール画像のアップロード処理
-    const arrayBuffer = await icon.arrayBuffer();
+    const fileObj = icon as any;
+    let arrayBuffer: ArrayBuffer;
+    try {
+      arrayBuffer = await fileObj.arrayBuffer();
+    } catch (e) {
+      return NextResponse.json(
+        { error: 'ファイル読み込みに失敗しました', detail: String(e) },
+        { status: 500 },
+      );
+    }
     const buffer = Buffer.from(arrayBuffer);
-    const ext = icon.name.split('.').pop() || 'png';
+    const ext = fileObj.name.split('.').pop() || 'png';
     const fileName = `${uuidv4()}.${ext}`;
 
     let imageUrl: string;
@@ -103,7 +118,7 @@ export async function POST(req: NextRequest) {
           Bucket: BUCKET,
           Key: key,
           Body: buffer,
-          ContentType: icon.type,
+          ContentType: fileObj.type,
         }),
       );
       imageUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
