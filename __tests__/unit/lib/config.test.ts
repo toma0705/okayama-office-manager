@@ -10,19 +10,25 @@ describe('src/lib/config', () => {
     jest.resetModules();
   });
 
-  it('API_BASE_URL: env 未設定なら空文字', () => {
-    delete (process.env as any).NEXT_PUBLIC_API_URL;
+  const origNodeEnv = process.env.NODE_ENV;
+  afterEach(() => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: origNodeEnv });
+    jest.resetModules();
+  });
+
+  it('API_BASE_URL: developmentはlocalhost', () => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'development' });
     jest.isolateModules(() => {
       const mod = require('@/lib/config');
-      expect(mod.API_BASE_URL).toBe('');
+      expect(mod.API_BASE_URL).toBe('http://localhost:3000/api');
     });
   });
 
-  it('API_BASE_URL: env 設定時はその値', () => {
-    (process.env as any).NEXT_PUBLIC_API_URL = 'https://api.example.com';
+  it('API_BASE_URL: productionは/api', () => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production' });
     jest.isolateModules(() => {
       const mod = require('@/lib/config');
-      expect(mod.API_BASE_URL).toBe('https://api.example.com');
+      expect(mod.API_BASE_URL).toBe('/api');
     });
   });
 });
