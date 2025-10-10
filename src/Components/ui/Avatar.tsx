@@ -10,15 +10,8 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-export function Avatar({
-  src,
-  alt,
-  size = 64,
-  rounded = true,
-  style,
-  className,
-}: Props) {
-  const valid = src && src.startsWith('http') ? src : '/file.svg';
+export function Avatar({ src, alt, size = 64, rounded = true, style, className }: Props) {
+  const valid = src ? src : '/file.svg';
   return (
     <Image
       src={valid}
