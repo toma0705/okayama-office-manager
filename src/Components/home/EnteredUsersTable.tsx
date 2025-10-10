@@ -15,7 +15,7 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
-    setNotes(Object.fromEntries(users.map((u) => [u.id, u.note ?? ''])));
+    setNotes(Object.fromEntries(users.map(u => [u.id, u.note ?? ''])));
   }, [users]);
 
   const handleSave = async (id: number) => {
@@ -25,7 +25,7 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
 
   return (
     <div className='mt-0 h-[350px] overflow-y-auto rounded-2xl'>
-      <table className='border-separate border-spacing-0 text-center w-full table-fixed rounded-2xl shadow-md'>
+      <table className='border-separate border-spacing-0 text-center w-full table-fixed shadow-md'>
         <thead>
           <tr>
             <th className='sticky top-0 z-[2] bg-[#7bc062] text-white p-3 min-w-[180px] whitespace-nowrap'>
@@ -39,7 +39,7 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
+          {users.map(u => (
             <tr key={u.id}>
               <td className='border-b-2 border-black p-4 text-lg'>
                 <div className='flex items-center justify-center my-1'>
@@ -54,14 +54,12 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
                 </div>
                 {u.enteredAt ? formatDateTime(u.enteredAt) : '-'}
               </td>
-              <td className='border-b-2 border-black border-l-2 border-gray-400 p-4 text-lg'>
+              <td className='border-b-2 border-b-black border-l-2 border-l-gray-400 p-4 text-lg'>
                 {editingId === u.id && me?.id === u.id ? (
                   <>
                     <textarea
                       value={notes[u.id] ?? ''}
-                      onChange={(e) =>
-                        setNotes((p) => ({ ...p, [u.id]: e.target.value }))
-                      }
+                      onChange={e => setNotes(p => ({ ...p, [u.id]: e.target.value }))}
                       rows={1}
                       className='w-full rounded-md border border-gray-300 p-3 text-lg resize-y box-border'
                       placeholder='メモを残す'
