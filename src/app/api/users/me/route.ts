@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { JwtPayload } from '@/types/declaration';
 import jwt from 'jsonwebtoken';
 
 export async function GET(req: NextRequest) {
@@ -17,11 +18,20 @@ export async function GET(req: NextRequest) {
 
   try {
     const secret = process.env.JWT_SECRET || 'secret';
-    const decoded = jwt.verify(token, secret) as { id: number };
+    const decoded = jwt.verify(token, secret) as JwtPayload;
 
     // 認証されたユーザー情報を取得
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
+      include: {
+        office: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -30,7 +40,10 @@ export async function GET(req: NextRequest) {
 
     // 現在入室中のユーザー一覧を取得
     const enteredUsers = await prisma.user.findMany({
-      where: { entered: true },
+      where: {
+        entered: true,
+        officeId: user.officeId,
+      },
       select: {
         id: true,
         name: true,
@@ -40,7 +53,16 @@ export async function GET(req: NextRequest) {
         exitedAt: true,
         entered: true,
         email: true,
+        officeId: true,
+        office: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
       },
+      orderBy: [{ enteredAt: 'asc' }],
     });
 
     return NextResponse.json({ user, enteredUsers });

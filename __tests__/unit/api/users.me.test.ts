@@ -38,7 +38,7 @@ describe('GET /api/users/me', () => {
   });
 
   it('404: ユーザーが見つからない', async () => {
-    jwt.verify.mockReturnValue({ id: 1 });
+    jwt.verify.mockReturnValue({ id: 1, officeId: 1, officeCode: 'OKAYAMA' });
     prisma.user.findUnique.mockResolvedValue(null);
     const req = new NextRequest('http://localhost/api/users/me', {
       headers: { Authorization: 'Bearer ok' } as any,
@@ -48,9 +48,22 @@ describe('GET /api/users/me', () => {
   });
 
   it('200: ユーザーと入室者一覧を返す', async () => {
-    jwt.verify.mockReturnValue({ id: 1 });
-    prisma.user.findUnique.mockResolvedValue({ id: 1, name: 'A' });
-    prisma.user.findMany.mockResolvedValue([{ id: 2, name: 'B', entered: true }]);
+    jwt.verify.mockReturnValue({ id: 1, officeId: 1, officeCode: 'OKAYAMA' });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'A',
+      officeId: 1,
+      office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
+    });
+    prisma.user.findMany.mockResolvedValue([
+      {
+        id: 2,
+        name: 'B',
+        entered: true,
+        officeId: 1,
+        office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
+      },
+    ]);
     const req = new NextRequest('http://localhost/api/users/me', {
       headers: { Authorization: 'Bearer ok' } as any,
     });

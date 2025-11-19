@@ -2,8 +2,8 @@
 /**
  * ユーザー登録ページ
  * - Path: /register
- * - 概要: ユーザー一覧の表示と新規ユーザー作成（アイコン画像アップロード対応）
- * - API: GET /api/users, POST /api/users
+ * - 概要: オフィスを選んで新規ユーザーを作成（アイコン画像アップロード対応）
+ * - API: GET /api/offices, POST /api/users
  * - Auth: 公開（管理者が最初に利用する想定も可）
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -12,24 +12,28 @@ import { PageContainer } from '@/Components/layouts/PageContainer';
 import { Input } from '@/Components/ui/Input';
 import { Button } from '@/Components/ui/Button';
 import { Avatar } from '@/Components/ui/Avatar';
-import type { User } from '@/types/declaration';
+import type { Office } from '@/types/declaration';
 import { API_BASE_URL } from '@/lib/config';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [iconFile, setIconFile] = useState<File | null>(null);
+  const [officeCode, setOfficeCode] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [officeTouched, setOfficeTouched] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/users`);
-        const data = await res.json();
-        setUsers(Array.isArray(data) ? data : []);
+        const officesRes = await fetch(`${API_BASE_URL}/offices`);
+        const officesData = await officesRes.json();
+        if (Array.isArray(officesData)) {
+          setOffices(officesData);
+        }
       } catch (e) {
         console.error(e);
       }
@@ -48,9 +52,11 @@ export default function RegisterPage() {
 
   const addUser = async () => {
     setErrorMessage('');
-    if (!name || !email || !password || !iconFile) {
+    if (!name || !email || !password || !iconFile || !officeCode) {
+      setOfficeTouched(true);
       if (!name || !email || !password) alert('名前・メールアドレス・パスワードは必須です');
-      else alert('アイコン画像の選択は必須です');
+      else if (!iconFile) alert('アイコン画像の選択は必須です');
+      else alert('所属オフィスの選択は必須です');
       return;
     }
     try {
@@ -59,6 +65,7 @@ export default function RegisterPage() {
       formData.append('email', email);
       formData.append('icon', iconFile);
       formData.append('password', password);
+      formData.append('officeCode', officeCode);
       const res = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         body: formData,
@@ -77,6 +84,8 @@ export default function RegisterPage() {
       setEmail('');
       setIconFile(null);
       setPassword('');
+      setOfficeCode('');
+      setOfficeTouched(false);
     } catch (err) {
       setErrorMessage('ユーザー追加時にエラーが発生しました');
       console.error(err);
@@ -85,15 +94,32 @@ export default function RegisterPage() {
 
   return (
     <PageContainer className='justify-start'>
-      <h1 className='text-center mb-6 text-2xl'>ユーザー一覧</h1>
-      <ul className='list-none p-0 mb-6'>
-        {users.map(u => (
-          <li key={u.id} className='flex items-center gap-3 mb-3 bg-white rounded-xl p-2 shadow-sm'>
-            <Avatar alt={u.name} src={u.iconFileName} size={40} />
-            <span className='text-lg'>{u.name}</span>
-          </li>
-        ))}
-      </ul>
+      <h1 className='text-center mb-6 text-2xl'>新規ユーザー登録</h1>
+      <div className='flex flex-col gap-2 mb-4'>
+        <select
+          value={officeCode}
+          onChange={e => setOfficeCode(e.target.value)}
+          className='w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-[#7bc062] focus:outline-none'
+          disabled={offices.length === 0}
+        >
+          <option value='' disabled>
+            {offices.length === 0 ? 'オフィス情報を読み込み中…' : 'オフィスを選択してください'}
+          </option>
+          {offices.map(option => (
+            <option key={option.id} value={option.code}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        {offices.length === 0 && (
+          <span className='text-xs text-gray-500'>
+            オフィス情報の取得が完了するまでお待ちください
+          </span>
+        )}
+        {officeTouched && officeCode === '' && offices.length > 0 && (
+          <span className='text-xs text-red-600'>オフィスを選択してください</span>
+        )}
+      </div>
 
       <Input
         placeholder='名前を入力'

@@ -29,7 +29,10 @@ export function UserSidebar({ user, onClose, onLogout, onDelete }: Props) {
       </button>
       <div className='flex items-center mt-8 mb-8'>
         <Avatar src={user.iconFileName} alt={user.name} size={64} />
-        <div className='text-[22px] font-semibold ml-5'>{user.name}</div>
+        <div className='ml-5 flex flex-col gap-1'>
+          <span className='text-[22px] font-semibold'>{user.name}</span>
+          <span className='text-sm text-gray-500'>{user.office.name}</span>
+        </div>
       </div>
       <button
         onClick={onLogout}

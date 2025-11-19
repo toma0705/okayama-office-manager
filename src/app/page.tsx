@@ -16,6 +16,7 @@ import { EnterExitButtons } from '@/Components/home/EnterExitButtons';
 import { EnteredUsersTable } from '@/Components/home/EnteredUsersTable';
 import { UserSidebar } from '@/Components/home/UserSidebar';
 import { API_BASE_URL } from '@/lib/config';
+import Link from 'next/link';
 
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -72,7 +73,11 @@ const Home = () => {
       await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: user.name, status: '入室' }),
+        body: JSON.stringify({
+          user: user.name,
+          status: '入室',
+          officeCode: user.office?.code ?? null,
+        }),
       });
 
       setApiSuccess(true);
@@ -103,7 +108,11 @@ const Home = () => {
       await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: user.name, status: '退室' }),
+        body: JSON.stringify({
+          user: user.name,
+          status: '退室',
+          officeCode: user.office?.code ?? null,
+        }),
       });
 
       setApiSuccess(true);
@@ -173,8 +182,22 @@ const Home = () => {
         />
       )}
 
+      {user && (
+        <div className='rounded-full bg-[#e8f5e9] text-[#388e3c] px-4 py-1 text-sm font-semibold mb-4 shadow-sm border border-[#c8e6c9]'>
+          {user.office.name}で表示中
+        </div>
+      )}
+
       <StatusTitle entered={entered} />
       <EnterExitButtons entered={entered} onEnter={onEnter} onExit={onExit} disabled={isPending} />
+      <div className='mb-6'>
+        <Link
+          href='/users'
+          className='inline-flex items-center gap-2 rounded-lg border border-[#7bc062] bg-white px-4 py-2 text-sm font-semibold text-[#388e3c] shadow-sm hover:bg-[#f0f8f4] transition-colors'
+        >
+          すべてのユーザーを見る
+        </Link>
+      </div>
       <EnteredUsersTable
         me={user}
         users={enteredUsers}

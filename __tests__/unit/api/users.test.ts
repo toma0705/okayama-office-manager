@@ -1,7 +1,36 @@
 import { POST as usersPost } from '@/app/api/users/route';
 import { NextRequest } from 'next/server';
 
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    user: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    office: {
+      upsert: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('fs/promises', () => ({
+  access: jest.fn().mockResolvedValue(undefined),
+  mkdir: jest.fn().mockResolvedValue(undefined),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('POST /api/users', () => {
+  const originalEnv = process.env.NODE_ENV;
+
+  beforeEach(() => {
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'development';
+  });
+
+  afterEach(() => {
+    (process.env as Record<string, string | undefined>).NODE_ENV = originalEnv;
+    jest.clearAllMocks();
+  });
+
   it('409: メール重複時', async () => {
     class MockFile extends Blob {
       name: string;
@@ -25,6 +54,7 @@ describe('POST /api/users', () => {
     form.set('email', 'dup@example.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
+    form.set('officeCode', 'OKAYAMA');
     const prisma = require('@/lib/prisma').prisma;
     prisma.user.findUnique = jest.fn().mockResolvedValue({});
     const req = { formData: async () => form } as any;
@@ -55,8 +85,14 @@ describe('POST /api/users', () => {
     form.set('email', 'b@example.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
+    form.set('officeCode', 'TOKYO');
     const prisma = require('@/lib/prisma').prisma;
     prisma.user.findUnique = jest.fn().mockResolvedValue(null);
+    prisma.office.upsert = jest.fn().mockResolvedValue({
+      id: 2,
+      code: 'TOKYO',
+      name: '東京オフィス',
+    });
     const req = { formData: async () => form } as any;
     const res = await usersPost(req);
     expect(res.status).toBe(500);
@@ -85,8 +121,14 @@ describe('POST /api/users', () => {
     form.set('email', 'b@example.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
+    form.set('officeCode', 'TOKYO');
     const prisma = require('@/lib/prisma').prisma;
     prisma.user.findUnique = jest.fn().mockResolvedValue(null);
+    prisma.office.upsert = jest.fn().mockResolvedValue({
+      id: 2,
+      code: 'TOKYO',
+      name: '東京オフィス',
+    });
     prisma.user.create = jest.fn().mockRejectedValue(new Error('fail'));
     const req = { formData: async () => form } as any;
     const res = await usersPost(req);

@@ -40,7 +40,14 @@ describe('POST /api/users/login', () => {
   });
 
   it('401: パスワード不一致', async () => {
-    prisma.user.findFirst.mockResolvedValue({ id: 1, name: 'A', password: 'hash' });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 1,
+      name: 'A',
+      password: 'hash',
+      iconFileName: 'x.png',
+      officeId: 1,
+      office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
+    });
     bcrypt.compare.mockResolvedValue(false);
     const req = { json: async () => ({ email: 'a@b.c', password: 'pw' }) } as any;
     const res = await login(req);
@@ -53,6 +60,8 @@ describe('POST /api/users/login', () => {
       name: 'A',
       password: 'hash',
       iconFileName: 'x.png',
+      officeId: 1,
+      office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
     });
     bcrypt.compare.mockResolvedValue(true);
     const req = { json: async () => ({ email: 'a@b.c', password: 'pw' }) } as any;
@@ -60,5 +69,7 @@ describe('POST /api/users/login', () => {
     const json: any = await res.json();
     expect(res.status).toBe(200);
     expect(json.token).toBeDefined();
+    expect(json.user.password).toBeUndefined();
+    expect(json.user.office.code).toBe('OKAYAMA');
   });
 });
