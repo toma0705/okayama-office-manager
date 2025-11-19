@@ -173,6 +173,12 @@ const Home = () => {
         />
       )}
 
+      {user && (
+        <div className='rounded-full bg-[#e8f5e9] text-[#388e3c] px-4 py-1 text-sm font-semibold mb-4 shadow-sm border border-[#c8e6c9]'>
+          {user.office.name}で表示中
+        </div>
+      )}
+
       <StatusTitle entered={entered} />
       <EnterExitButtons entered={entered} onEnter={onEnter} onExit={onExit} disabled={isPending} />
       <EnteredUsersTable

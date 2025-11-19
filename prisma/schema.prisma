@@ -20,4 +20,17 @@ model User {
   entered           Boolean   @default(false)
   enteredAt         DateTime?
   exitedAt          DateTime?
+  officeId          Int
+  office            Office    @relation(fields: [officeId], references: [id])
+
+  @@index([officeId])
+}
+
+model Office {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
 }

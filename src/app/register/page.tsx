@@ -12,29 +12,57 @@ import { PageContainer } from '@/Components/layouts/PageContainer';
 import { Input } from '@/Components/ui/Input';
 import { Button } from '@/Components/ui/Button';
 import { Avatar } from '@/Components/ui/Avatar';
-import type { User } from '@/types/declaration';
+import type { Office } from '@/types/declaration';
 import { API_BASE_URL } from '@/lib/config';
+
+type RegistrationUser = {
+  id: number;
+  name: string;
+  iconFileName: string;
+  office?: Office;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<RegistrationUser[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [iconFile, setIconFile] = useState<File | null>(null);
+  const [officeCode, setOfficeCode] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/users`);
+        const officesRes = await fetch(`${API_BASE_URL}/offices`);
+        const officesData = await officesRes.json();
+        if (Array.isArray(officesData)) {
+          setOffices(officesData);
+          setOfficeCode(prev => prev || officesData[0]?.code || '');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!officeCode) {
+      setUsers([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/users?officeCode=${officeCode}`);
         const data = await res.json();
         setUsers(Array.isArray(data) ? data : []);
       } catch (e) {
         console.error(e);
       }
     })();
-  }, []);
+  }, [officeCode]);
 
   const iconPreviewUrl = useMemo(
     () => (iconFile ? URL.createObjectURL(iconFile) : undefined),
@@ -48,9 +76,10 @@ export default function RegisterPage() {
 
   const addUser = async () => {
     setErrorMessage('');
-    if (!name || !email || !password || !iconFile) {
+    if (!name || !email || !password || !iconFile || !officeCode) {
       if (!name || !email || !password) alert('名前・メールアドレス・パスワードは必須です');
-      else alert('アイコン画像の選択は必須です');
+      else if (!iconFile) alert('アイコン画像の選択は必須です');
+      else alert('所属オフィスの選択は必須です');
       return;
     }
     try {
@@ -59,6 +88,7 @@ export default function RegisterPage() {
       formData.append('email', email);
       formData.append('icon', iconFile);
       formData.append('password', password);
+      formData.append('officeCode', officeCode);
       const res = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         body: formData,
@@ -77,6 +107,7 @@ export default function RegisterPage() {
       setEmail('');
       setIconFile(null);
       setPassword('');
+      setOfficeCode('');
     } catch (err) {
       setErrorMessage('ユーザー追加時にエラーが発生しました');
       console.error(err);
@@ -86,11 +117,37 @@ export default function RegisterPage() {
   return (
     <PageContainer className='justify-start'>
       <h1 className='text-center mb-6 text-2xl'>ユーザー一覧</h1>
+      <div className='flex flex-col gap-2 mb-4'>
+        <label className='text-sm font-semibold text-gray-700'>登録先オフィス</label>
+        <select
+          value={officeCode}
+          onChange={e => setOfficeCode(e.target.value)}
+          className='w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-[#7bc062] focus:outline-none'
+          disabled={offices.length === 0}
+        >
+          <option value='' disabled>
+            {offices.length === 0 ? 'オフィス情報を読み込み中…' : 'オフィスを選択してください'}
+          </option>
+          {offices.map(option => (
+            <option key={option.id} value={option.code}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        {offices.length === 0 && (
+          <span className='text-xs text-gray-500'>
+            オフィス情報の取得が完了するまでお待ちください
+          </span>
+        )}
+      </div>
       <ul className='list-none p-0 mb-6'>
         {users.map(u => (
           <li key={u.id} className='flex items-center gap-3 mb-3 bg-white rounded-xl p-2 shadow-sm'>
             <Avatar alt={u.name} src={u.iconFileName} size={40} />
-            <span className='text-lg'>{u.name}</span>
+            <div className='flex flex-col'>
+              <span className='text-lg font-semibold'>{u.name}</span>
+              <span className='text-xs text-gray-500'>{u.office?.name ?? '未設定'}</span>
+            </div>
           </li>
         ))}
       </ul>

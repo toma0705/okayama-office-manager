@@ -26,13 +26,31 @@ const BUCKET = process.env.AWS_S3_BUCKET_NAME!;
  * ユーザー一覧取得API
  * 登録ページで表示するための基本情報のみ取得
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const officeCode = req.nextUrl.searchParams.get('officeCode')?.toUpperCase();
   try {
     const users = await prisma.user.findMany({
+      where: officeCode
+        ? {
+            office: {
+              code: officeCode,
+            },
+          }
+        : undefined,
       select: {
         id: true,
         name: true,
         iconFileName: true,
+        office: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
       },
     });
     return NextResponse.json(users);
@@ -56,6 +74,7 @@ export async function POST(req: NextRequest) {
     const email = formData.get('email')?.toString();
     const password = formData.get('password')?.toString();
     const icon = formData.get('icon');
+    const officeCode = formData.get('officeCode')?.toString().toUpperCase();
 
     // Node.jsテスト環境のMockFile対応: File/Blobの型判定を緩和
     const isFileLike = (f: any) =>
@@ -63,9 +82,9 @@ export async function POST(req: NextRequest) {
       typeof f === 'object' &&
       typeof f.arrayBuffer === 'function' &&
       typeof f.name === 'string';
-    if (!name || !email || !password || !icon || !isFileLike(icon)) {
+    if (!name || !email || !password || !icon || !isFileLike(icon) || !officeCode) {
       return NextResponse.json(
-        { error: 'name, email, password, icon は必須です' },
+        { error: 'name, email, password, icon, officeCode は必須です' },
         { status: 400 },
       );
     }
@@ -126,12 +145,28 @@ export async function POST(req: NextRequest) {
 
     // パスワードをハッシュ化してユーザー作成
     const hashedPassword = await bcrypt.hash(password, 10);
+    const office = await prisma.office.findUnique({
+      where: { code: officeCode },
+    });
+    if (!office) {
+      return NextResponse.json({ error: 'officeCode が不正です' }, { status: 400 });
+    }
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
         iconFileName: imageUrl,
+        officeId: office.id,
+      },
+      include: {
+        office: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
       },
     });
     return NextResponse.json(user, { status: 201 });

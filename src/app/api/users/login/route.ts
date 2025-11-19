@@ -18,7 +18,18 @@ export async function POST(req: NextRequest) {
   }
 
   // メールアドレスでユーザーを検索
-  const user = await prisma.user.findFirst({ where: { email } });
+  const user = await prisma.user.findFirst({
+    where: { email },
+    include: {
+      office: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+        },
+      },
+    },
+  });
   if (!user) {
     return NextResponse.json(
       { error: 'メールアドレスまたはパスワードが違います' },
@@ -37,10 +48,18 @@ export async function POST(req: NextRequest) {
 
   // JWTトークン生成（7日間有効）
   const token = jwt.sign(
-    { id: user.id, name: user.name, iconFileName: user.iconFileName },
+    {
+      id: user.id,
+      name: user.name,
+      iconFileName: user.iconFileName,
+      officeId: user.officeId,
+      officeCode: user.office.code,
+    },
     process.env.JWT_SECRET || 'secret',
     { expiresIn: JWT_EXPIRES_IN },
   );
 
-  return NextResponse.json({ user, token });
+  const { password: _pw, ...userSafe } = user;
+
+  return NextResponse.json({ user: userSafe, token });
 }
