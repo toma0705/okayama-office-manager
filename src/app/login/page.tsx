@@ -71,6 +71,9 @@ export default function LoginPage() {
       <Button variant='secondary' onClick={() => router.push('/register')}>
         新規登録
       </Button>
+      <LinkButton href='/users' center className='mt-3'>
+        ユーザー一覧を見る
+      </LinkButton>
       <LinkButton href='/reset-password' center className='mt-3'>
         パスワードをお忘れの方はこちら
       </LinkButton>
