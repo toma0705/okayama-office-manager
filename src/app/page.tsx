@@ -73,7 +73,11 @@ const Home = () => {
       await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: user.name, status: '入室' }),
+        body: JSON.stringify({
+          user: user.name,
+          status: '入室',
+          officeCode: user.office?.code ?? null,
+        }),
       });
 
       setApiSuccess(true);
@@ -104,7 +108,11 @@ const Home = () => {
       await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: user.name, status: '退室' }),
+        body: JSON.stringify({
+          user: user.name,
+          status: '退室',
+          officeCode: user.office?.code ?? null,
+        }),
       });
 
       setApiSuccess(true);
