@@ -12,27 +12,15 @@ const supabaseHostname = (() => {
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'res.cloudinary.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'pg-okayama-office-manager.s3.ap-northeast-1.amazonaws.com',
-        pathname: '/user-icons/**',
-      },
-      ...(supabaseHostname
-        ? [
-            {
-              protocol: 'https' as const,
-              hostname: supabaseHostname,
-              pathname: '/storage/v1/object/public/**',
-            },
-          ]
-        : []),
-    ],
+    remotePatterns: supabaseHostname
+      ? [
+          {
+            protocol: 'https',
+            hostname: supabaseHostname,
+            pathname: '/storage/v1/object/public/**',
+          },
+        ]
+      : [],
   },
   async headers() {
     return [
