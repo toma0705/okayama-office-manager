@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { MAX_ICON_SIZE_BYTES, uploadUserIcon } from '@/lib/storage';
+import { compressImageToLimit } from '@/utils/image';
 
 /**
  * ユーザー一覧取得API
@@ -99,22 +100,36 @@ export async function POST(req: NextRequest) {
     }
     const buffer = Buffer.from(arrayBuffer);
 
-    if (buffer.length > MAX_ICON_SIZE_BYTES) {
+    const ext = fileObj.name.split('.').pop() || 'png';
+    const originalContentType = fileObj.type || 'application/octet-stream';
+
+    const compressed = await compressImageToLimit(buffer, {
+      maxBytes: MAX_ICON_SIZE_BYTES,
+      mimeType: originalContentType,
+    });
+
+    if (compressed.buffer.length > MAX_ICON_SIZE_BYTES) {
+      const sizeKb = Math.ceil(compressed.buffer.length / 1024);
+      const maxKb = Math.floor(MAX_ICON_SIZE_BYTES / 1024);
       return NextResponse.json(
-        { error: 'プロフィール画像は200KB以下のファイルを指定してください' },
+        {
+          error: 'プロフィール画像の容量を減らせませんでした',
+          detail: `圧縮後のファイルサイズが ${sizeKb}KB で、上限 ${maxKb}KB を超えています。`,
+        },
         { status: 400 },
       );
     }
 
-    const ext = fileObj.name.split('.').pop() || 'png';
-    const fileName = `${uuidv4()}.${ext}`;
+    const finalExtension = compressed.wasCompressed ? compressed.extension : ext;
+    const finalContentType = compressed.contentType || originalContentType;
+    const fileName = `${uuidv4()}.${finalExtension}`;
 
     let imageUrl: string;
     try {
       const { publicUrl } = await uploadUserIcon({
-        buffer,
+        buffer: compressed.buffer,
         fileName,
-        contentType: fileObj.type,
+        contentType: finalContentType,
       });
       imageUrl = publicUrl;
     } catch (error) {

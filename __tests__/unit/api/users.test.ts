@@ -19,10 +19,22 @@ jest.mock('@/lib/storage', () => ({
   removeUserIconByUrl: jest.fn(),
 }));
 
+jest.mock('@/utils/image', () => ({
+  compressImageToLimit: jest.fn(async (buffer: Buffer, { mimeType }: any) => ({
+    buffer,
+    contentType: mimeType ?? 'image/png',
+    extension: mimeType?.split('/')?.pop() ?? 'png',
+    wasCompressed: false,
+    originalBytes: buffer.length,
+  })),
+}));
+
 describe('POST /api/users', () => {
   const originalEnv = process.env.NODE_ENV;
   const prisma = require('@/lib/prisma').prisma;
   const storage = require('@/lib/storage');
+  const imageUtils = require('@/utils/image');
+  const compressMock = imageUtils.compressImageToLimit as jest.Mock;
 
   const createMockFile = ({
     size = 1,
@@ -55,6 +67,14 @@ describe('POST /api/users', () => {
     prisma.user.findUnique.mockReset();
     prisma.user.create.mockReset();
     prisma.office.findUnique.mockReset();
+    compressMock.mockReset();
+    compressMock.mockImplementation(async (buffer: Buffer, { mimeType }: any) => ({
+      buffer,
+      contentType: mimeType ?? 'image/png',
+      extension: mimeType?.split('/')?.pop() ?? 'png',
+      wasCompressed: false,
+      originalBytes: buffer.length,
+    }));
     storage.uploadUserIcon.mockResolvedValue({
       publicUrl:
         'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/default.png',
@@ -121,7 +141,7 @@ describe('POST /api/users', () => {
     expect(res.status).toBe(500);
   });
 
-  it('400: 画像サイズが200KBを超える場合', async () => {
+  it('400: 圧縮後も200KBを超える場合', async () => {
     const form = new FormData();
     const icon = createMockFile({
       size: storage.MAX_ICON_SIZE_BYTES + 1,
@@ -137,9 +157,61 @@ describe('POST /api/users', () => {
       .fn()
       .mockResolvedValue({ id: 2, code: 'TOKYO', name: '東京オフィス' });
 
+    compressMock.mockResolvedValueOnce({
+      buffer: Buffer.alloc(storage.MAX_ICON_SIZE_BYTES + 10),
+      contentType: 'image/webp',
+      extension: 'webp',
+      wasCompressed: true,
+      originalBytes: storage.MAX_ICON_SIZE_BYTES + 1,
+    });
+
     const req = { formData: async () => form } as any;
     const res = await usersPost(req);
     expect(res.status).toBe(400);
+  });
+
+  it('201: 大きな画像でも圧縮してアップロード', async () => {
+    const form = new FormData();
+    const icon = createMockFile({
+      size: storage.MAX_ICON_SIZE_BYTES + 5000,
+      name: 'huge.png',
+    });
+    form.set('name', 'a');
+    form.set('email', 'c@example.com');
+    form.set('password', 'pw');
+    form.set('icon', icon, icon.name);
+    form.set('officeCode', 'TOKYO');
+    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
+    prisma.office.findUnique = jest
+      .fn()
+      .mockResolvedValue({ id: 2, code: 'TOKYO', name: '東京オフィス' });
+    prisma.user.create = jest.fn().mockResolvedValue({
+      id: 1,
+      name: 'a',
+      email: 'c@example.com',
+      officeId: 2,
+      iconFileName: 'https://example/icon.webp',
+      office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
+    });
+
+    compressMock.mockResolvedValueOnce({
+      buffer: Buffer.alloc(storage.MAX_ICON_SIZE_BYTES - 10),
+      contentType: 'image/webp',
+      extension: 'webp',
+      wasCompressed: true,
+      originalBytes: storage.MAX_ICON_SIZE_BYTES + 5000,
+    });
+
+    const req = { formData: async () => form } as any;
+    const res = await usersPost(req);
+    expect(res.status).toBe(201);
+    expect(storage.uploadUserIcon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentType: 'image/webp',
+        buffer: expect.any(Buffer),
+        fileName: expect.stringMatching(/\.webp$/),
+      }),
+    );
   });
 
   it('500: prisma.user.create失敗時', async () => {
