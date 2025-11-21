@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [officeCode, setOfficeCode] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [officeTouched, setOfficeTouched] = useState(false);
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function RegisterPage() {
 
   const addUser = async () => {
     setErrorMessage('');
+    setErrorDetail(null);
     if (!name || !email || !password || !iconFile || !officeCode) {
       setOfficeTouched(true);
       if (!name || !email || !password) alert('名前・メールアドレス・パスワードは必須です');
@@ -71,23 +73,48 @@ export default function RegisterPage() {
         body: formData,
       });
       if (res.ok) {
+        setErrorMessage('');
+        setErrorDetail(null);
+        setName('');
+        setEmail('');
+        setIconFile(null);
+        setPassword('');
+        setOfficeCode('');
+        setOfficeTouched(false);
         router.push('/login');
       } else {
-        const data = await res.json();
-        if (res.status === 409 && data?.error === 'このメールアドレスは既に登録されています') {
+        const rawBody = await res.text();
+        let parsed: unknown;
+        try {
+          parsed = rawBody ? JSON.parse(rawBody) : undefined;
+        } catch {
+          parsed = undefined;
+        }
+
+        const apiError =
+          typeof (parsed as any)?.error === 'string' ? (parsed as any).error : undefined;
+        const apiDetail =
+          typeof (parsed as any)?.detail === 'string' ? (parsed as any).detail : undefined;
+        const baseStatusInfo = `ステータス: ${res.status}${
+          res.statusText ? ` ${res.statusText}` : ''
+        }`;
+
+        if (res.status === 409 && apiError === 'このメールアドレスは既に登録されています') {
           setErrorMessage('既に同じメールアドレスが存在しています');
+          setErrorDetail(apiDetail ?? null);
         } else {
-          setErrorMessage('ユーザー追加に失敗しました');
+          const message = apiError ?? `ユーザー追加に失敗しました（${baseStatusInfo}）`;
+          const detailCandidate =
+            apiDetail ?? (apiError ? baseStatusInfo : rawBody || baseStatusInfo);
+
+          setErrorMessage(message);
+          setErrorDetail(detailCandidate && detailCandidate !== message ? detailCandidate : null);
         }
       }
-      setName('');
-      setEmail('');
-      setIconFile(null);
-      setPassword('');
-      setOfficeCode('');
-      setOfficeTouched(false);
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       setErrorMessage('ユーザー追加時にエラーが発生しました');
+      setErrorDetail(message);
       console.error(err);
     }
   };
@@ -161,7 +188,14 @@ export default function RegisterPage() {
         )}
       </label>
       {errorMessage && (
-        <div className='text-[#d32f2f] mb-3 text-center font-semibold'>{errorMessage}</div>
+        <div className='mb-3 text-center text-[#d32f2f]'>
+          <p className='font-semibold'>{errorMessage}</p>
+          {errorDetail && (
+            <p className='mt-1 text-xs whitespace-pre-wrap break-words text-[#b71c1c]'>
+              {errorDetail}
+            </p>
+          )}
+        </div>
       )}
 
       <Button onClick={addUser} className='mb-2'>
