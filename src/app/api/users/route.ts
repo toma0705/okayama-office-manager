@@ -7,20 +7,8 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs/promises';
-import path from 'path';
-
-// AWS S3クライアント設定（本番環境用）
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
-const BUCKET = process.env.AWS_S3_BUCKET_NAME!;
+import { MAX_ICON_SIZE_BYTES, uploadUserIcon } from '@/lib/storage';
 
 /**
  * ユーザー一覧取得API
@@ -65,7 +53,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * ユーザー新規登録API
- * プロフィール画像をS3にアップロードしてユーザー情報をDBに保存
+ * プロフィール画像をSupabase Storageにアップロードしてユーザー情報をDBに保存
  */
 export async function POST(req: NextRequest) {
   try {
@@ -110,37 +98,31 @@ export async function POST(req: NextRequest) {
       );
     }
     const buffer = Buffer.from(arrayBuffer);
+
+    if (buffer.length > MAX_ICON_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: 'プロフィール画像は200KB以下のファイルを指定してください' },
+        { status: 400 },
+      );
+    }
+
     const ext = fileObj.name.split('.').pop() || 'png';
     const fileName = `${uuidv4()}.${ext}`;
 
     let imageUrl: string;
-
-    if (process.env.NODE_ENV === 'development') {
-      // 開発環境：ローカルファイルシステムに保存
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-
-      // uploadsディレクトリが存在しない場合は作成
-      try {
-        await fs.access(uploadsDir);
-      } catch {
-        await fs.mkdir(uploadsDir, { recursive: true });
-      }
-
-      const filePath = path.join(uploadsDir, fileName);
-      await fs.writeFile(filePath, buffer);
-      imageUrl = `/uploads/${fileName}`;
-    } else {
-      // 本番環境：S3にアップロード
-      const key = `user-icons/${fileName}`;
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: BUCKET,
-          Key: key,
-          Body: buffer,
-          ContentType: fileObj.type,
-        }),
+    try {
+      const { publicUrl } = await uploadUserIcon({
+        buffer,
+        fileName,
+        contentType: fileObj.type,
+      });
+      imageUrl = publicUrl;
+    } catch (error) {
+      console.error('Supabase Storage upload failed:', error);
+      return NextResponse.json(
+        { error: 'プロフィール画像のアップロードに失敗しました', detail: String(error) },
+        { status: 500 },
       );
-      imageUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
     }
 
     // パスワードをハッシュ化してユーザー作成

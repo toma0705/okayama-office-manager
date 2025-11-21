@@ -17,22 +17,14 @@ jest.mock('@/lib/prisma', () => ({
 // bcrypt モック
 jest.mock('bcryptjs', () => ({ hash: jest.fn(async () => 'hashed_pw') }));
 
-// S3 SDK モック（トップレベル初期化の副作用を無効化）
-jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(),
-  PutObjectCommand: jest.fn(),
+jest.mock('@/lib/storage', () => ({
+  MAX_ICON_SIZE_BYTES: 200 * 1024,
+  uploadUserIcon: jest.fn(),
+  removeUserIconByUrl: jest.fn(),
 }));
-
-// fs/promises モック（開発環境パスで利用）
-jest.mock('fs/promises', () => ({
-  access: jest.fn().mockRejectedValue(new Error('no dir')),
-  mkdir: jest.fn().mockResolvedValue(undefined),
-  writeFile: jest.fn().mockResolvedValue(undefined),
-}));
-
-// S3クライアントは本テストでは使用しない（NODE_ENV=developmentにしてローカル保存パスへ）
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
+const storage = jest.requireMock('@/lib/storage');
 
 describe('GET/POST /api/users (root)', () => {
   const origEnv = (process.env as any).NODE_ENV;
@@ -59,6 +51,12 @@ describe('GET/POST /api/users (root)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (process.env as any).NODE_ENV = 'development';
+    storage.uploadUserIcon.mockReset();
+    storage.uploadUserIcon.mockResolvedValue({
+      publicUrl:
+        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/default.png',
+      storagePath: 'user-icons/default.png',
+    });
   });
 
   afterAll(() => {
@@ -112,7 +110,7 @@ describe('GET/POST /api/users (root)', () => {
     expect(res.status).toBe(409);
   });
 
-  it('POST: 201 成功（開発環境・ローカル保存）', async () => {
+  it('POST: 201 成功（Supabaseアップロード）', async () => {
     const fd = new FormData();
     fd.append('name', 'Hanako');
     fd.append('email', 'hanako@example.com');
@@ -131,13 +129,25 @@ describe('GET/POST /api/users (root)', () => {
       officeId: 2,
       office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
     };
-    prisma.user.create.mockResolvedValue(created);
+    prisma.user.create.mockImplementation(async ({ data }: any) => ({
+      ...created,
+      iconFileName: data.iconFileName,
+    }));
+    storage.uploadUserIcon.mockResolvedValue({
+      publicUrl:
+        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
+      storagePath: 'user-icons/icon.jpg',
+    });
 
     const req = { formData: async () => fd } as any;
     const res = await usersPost(req);
     expect(res.status).toBe(201);
     const json = await res.json();
-    expect(json).toEqual(created);
+    expect(json).toEqual({
+      ...created,
+      iconFileName:
+        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
+    });
   });
 
   it('POST: 400 存在しないオフィスコード', async () => {

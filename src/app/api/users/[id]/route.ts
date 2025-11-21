@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { removeUserIconByUrl } from '@/lib/storage';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -44,11 +45,26 @@ export async function DELETE(_: NextRequest, context: any) {
 
     // プロフィール画像ファイルが存在する場合は削除
     if (user && user.iconFileName) {
-      const filePath = path.join(process.cwd(), 'public/uploads', user.iconFileName);
       try {
-        await fs.unlink(filePath);
-      } catch {
-        // ファイルが存在しない場合は無視
+        const removalResult = await removeUserIconByUrl(user.iconFileName);
+
+        if (removalResult.error) {
+          console.warn('Supabase Storage icon deletion failed:', removalResult.error);
+        }
+
+        if (!removalResult.storagePath) {
+          const relativePath = user.iconFileName.startsWith('/')
+            ? user.iconFileName.slice(1)
+            : user.iconFileName;
+          const filePath = path.join(process.cwd(), 'public', relativePath);
+          try {
+            await fs.unlink(filePath);
+          } catch {
+            // ファイルが存在しない場合は無視
+          }
+        }
+      } catch (error) {
+        console.warn('プロフィール画像削除処理でエラーが発生しました:', error);
       }
     }
 
