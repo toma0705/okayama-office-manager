@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from './supabase';
+import { getSupabaseAdminClient } from './supabase';
 
 export const USER_ICON_BUCKET = 'office-manager-icon';
 export const MAX_ICON_SIZE_BYTES = 200 * 1024;
 const PUBLIC_PREFIX = `/storage/v1/object/public/${USER_ICON_BUCKET}/`;
 
 const getBucket = (): ReturnType<SupabaseClient['storage']['from']> =>
-  supabaseAdmin.storage.from(USER_ICON_BUCKET);
+  getSupabaseAdminClient().storage.from(USER_ICON_BUCKET);
 
 export async function uploadUserIcon(params: {
   buffer: Buffer;
