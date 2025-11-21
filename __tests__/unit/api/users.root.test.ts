@@ -63,7 +63,7 @@ describe('GET/POST /api/users (root)', () => {
     (process.env as any).NODE_ENV = origEnv;
   });
 
-  it('GET: 200 ユーザー一覧取得', async () => {
+  it('GET: 200 ユーザーリスト取得', async () => {
     const list = [
       {
         id: 1,

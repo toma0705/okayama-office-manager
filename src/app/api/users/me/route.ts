@@ -1,6 +1,6 @@
 /**
  * ユーザープロフィールと入室中ユーザー取得エンドポイント
- * 認証されたユーザーの情報と現在入室中のユーザー一覧を返す
+ * 認証されたユーザーの情報と現在入室中のユーザーリストを返す
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
     }
 
-    // 現在入室中のユーザー一覧を取得
+    // 現在入室中のユーザーリストを取得
     const enteredUsers = await prisma.user.findMany({
       where: {
         entered: true,
