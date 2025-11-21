@@ -1,6 +1,6 @@
 /**
  * ユーザー管理API
- * GET: ユーザー一覧の取得（登録ページ用）
+ * GET: ユーザーリストの取得（登録ページ用）
  * POST: 新規ユーザー登録とプロフィール画像のアップロード
  */
 export const runtime = 'nodejs';
@@ -12,7 +12,7 @@ import { MAX_ICON_SIZE_BYTES, uploadUserIcon } from '@/lib/storage';
 import { compressImageToLimit } from '@/utils/image';
 
 /**
- * ユーザー一覧取得API
+ * ユーザーリスト取得API
  * 登録ページで表示するための基本情報のみ取得
  */
 export async function GET(req: NextRequest) {
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error(e);
     return NextResponse.json(
-      { error: 'ユーザー一覧取得に失敗しました', detail: String(e) },
+      { error: 'ユーザーリスト取得に失敗しました', detail: String(e) },
       { status: 500 },
     );
   }
