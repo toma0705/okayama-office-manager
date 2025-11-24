@@ -59,6 +59,7 @@ const Home = () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
     const prev = entered;
+    const prevNote = user.note ?? null;
     if (isPending) return;
     setIsPending(true);
     setPendingAction('enter');
@@ -94,10 +95,12 @@ const Home = () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
     const prev = entered;
+    const prevNote = user.note ?? null;
     if (isPending) return;
     setIsPending(true);
     setPendingAction('exit');
     setEntered(false);
+    setUser(prevUser => (prevUser ? { ...prevUser, entered: false, note: null } : prevUser));
     try {
       const res = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
         method: 'POST',
@@ -119,6 +122,7 @@ const Home = () => {
       fetchUserAndEnteredUsers();
     } catch (e) {
       setEntered(prev);
+      setUser(prevUser => (prevUser ? { ...prevUser, entered: prev, note: prevNote } : prevUser));
       setIsPending(false);
       setPendingAction(null);
       setApiSuccess(false);
@@ -202,11 +206,36 @@ const Home = () => {
         me={user}
         users={enteredUsers}
         onSaveNote={async (userId, note) => {
-          await fetch(`/api/users/${userId}`, {
+          const response = await fetch(`/api/users/${userId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ note }),
           });
+
+          if (!response.ok) {
+            throw new Error('Failed to save note');
+          }
+
+          const trimmedNote = note.trim();
+          const prevNote = user?.note ?? '';
+
+          if (user && user.id === userId) {
+            setUser(prevUser => (prevUser ? { ...prevUser, note } : prevUser));
+
+            if (trimmedNote && trimmedNote !== prevNote.trim()) {
+              await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user: user.name,
+                  status: 'メモを追加',
+                  officeCode: user.office?.code ?? null,
+                  note: trimmedNote,
+                }),
+              });
+            }
+          }
+
           await fetchUserAndEnteredUsers();
         }}
       />
