@@ -206,11 +206,36 @@ const Home = () => {
         me={user}
         users={enteredUsers}
         onSaveNote={async (userId, note) => {
-          await fetch(`/api/users/${userId}`, {
+          const response = await fetch(`/api/users/${userId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ note }),
           });
+
+          if (!response.ok) {
+            throw new Error('Failed to save note');
+          }
+
+          const trimmedNote = note.trim();
+          const prevNote = user?.note ?? '';
+
+          if (user && user.id === userId) {
+            setUser(prevUser => (prevUser ? { ...prevUser, note } : prevUser));
+
+            if (trimmedNote && trimmedNote !== prevNote.trim()) {
+              await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user: user.name,
+                  status: 'メモを追加',
+                  officeCode: user.office?.code ?? null,
+                  note: trimmedNote,
+                }),
+              });
+            }
+          }
+
           await fetchUserAndEnteredUsers();
         }}
       />
