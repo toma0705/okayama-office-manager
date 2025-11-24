@@ -26,6 +26,7 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [officeTouched, setOfficeTouched] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -61,6 +62,8 @@ export default function RegisterPage() {
       else alert('所属オフィスの選択は必須です');
       return;
     }
+    let shouldResetSubmitting = true;
+    setIsSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('name', name);
@@ -81,7 +84,9 @@ export default function RegisterPage() {
         setPassword('');
         setOfficeCode('');
         setOfficeTouched(false);
+        shouldResetSubmitting = false;
         router.push('/login');
+        return;
       } else {
         const rawBody = await res.text();
         let parsed: unknown;
@@ -116,6 +121,10 @@ export default function RegisterPage() {
       setErrorMessage('ユーザー追加時にエラーが発生しました');
       setErrorDetail(message);
       console.error(err);
+    } finally {
+      if (shouldResetSubmitting) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -198,8 +207,8 @@ export default function RegisterPage() {
         </div>
       )}
 
-      <Button onClick={addUser} className='mb-2'>
-        追加
+      <Button onClick={addUser} className='mb-2' disabled={isSubmitting}>
+        {isSubmitting ? 'ユーザーを追加しています…' : '追加'}
       </Button>
       <Button variant='secondary' onClick={() => router.push('/login')}>
         ログイン画面に戻る

@@ -25,9 +25,7 @@ export function Button({
 }: ButtonProps) {
   const base = 'text-[16px] px-3 py-3 rounded-lg';
   const width = fullWidth ? 'w-full' : '';
-  const cursor = props.disabled
-    ? 'cursor-not-allowed opacity-60'
-    : 'cursor-pointer';
+  const cursor = props.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer';
   return (
     <button
       {...props}
