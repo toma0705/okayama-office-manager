@@ -59,6 +59,7 @@ const Home = () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
     const prev = entered;
+    const prevNote = user.note ?? null;
     if (isPending) return;
     setIsPending(true);
     setPendingAction('enter');
@@ -94,10 +95,12 @@ const Home = () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
     const prev = entered;
+    const prevNote = user.note ?? null;
     if (isPending) return;
     setIsPending(true);
     setPendingAction('exit');
     setEntered(false);
+    setUser(prevUser => (prevUser ? { ...prevUser, entered: false, note: null } : prevUser));
     try {
       const res = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
         method: 'POST',
@@ -119,6 +122,7 @@ const Home = () => {
       fetchUserAndEnteredUsers();
     } catch (e) {
       setEntered(prev);
+      setUser(prevUser => (prevUser ? { ...prevUser, entered: prev, note: prevNote } : prevUser));
       setIsPending(false);
       setPendingAction(null);
       setApiSuccess(false);

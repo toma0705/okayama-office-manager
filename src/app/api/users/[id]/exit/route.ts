@@ -30,6 +30,7 @@ export async function POST(req: NextRequest, context: any) {
       data: {
         entered: false,
         exitedAt: new Date(),
+        note: null,
       },
     });
 

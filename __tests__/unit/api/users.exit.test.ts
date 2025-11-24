@@ -18,7 +18,7 @@ describe('POST /api/users/[id]/exit', () => {
   });
 
   it('正常系: 退室に成功', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: 1, entered: true });
+  prisma.user.findUnique.mockResolvedValue({ id: 1, entered: true, note: 'テストメモ' });
     prisma.user.update.mockResolvedValue({ id: 1, entered: false });
 
     const req = new NextRequest('http://localhost/api/users/1/exit', { method: 'POST' });
@@ -29,6 +29,14 @@ describe('POST /api/users/[id]/exit', () => {
 
     expect(res.status).toBe(200);
     expect(json.message).toBe('退室しました');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: expect.objectContaining({
+        entered: false,
+        note: null,
+        exitedAt: expect.any(Date),
+      }),
+    });
   });
 
   it('不正ID: 400', async () => {
