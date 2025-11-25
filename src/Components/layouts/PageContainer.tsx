@@ -15,7 +15,11 @@ export function PageContainer({
       className={`px-6 max-w-[600px] mx-auto min-h-screen flex flex-col justify-center bg-[#f7f7f7] ${
         className || ''
       }`}
-      style={{ ...(style || {}) }}
+      style={{
+        minHeight: '100dvh',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        ...(style || {}),
+      }}
     >
       {children}
     </div>
