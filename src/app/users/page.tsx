@@ -68,9 +68,9 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className='w-full rounded-xl bg-white shadow overflow-hidden'>
+      <div className='w-full h-[430px] overflow-y-auto rounded-xl bg-white shadow overflow-hidden'>
         <table className='w-full table-auto border-collapse'>
-          <thead className='bg-[#7bc062] text-white text-left text-sm uppercase tracking-wide'>
+          <thead className='sticky top-0 bg-[#7bc062] text-white text-left text-sm uppercase tracking-wide'>
             <tr>
               <th className='px-4 py-3 text-center'>アイコン</th>
               <th className='px-4 py-3'>名前</th>
