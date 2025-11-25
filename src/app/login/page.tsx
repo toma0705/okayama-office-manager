@@ -12,7 +12,7 @@ import { Button } from '@/Components/ui/Button';
 import { LinkButton } from '@/Components/ui/LinkButton';
 import { API_BASE_URL } from '@/lib/config';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -25,7 +25,9 @@ export default function LoginPage() {
     if (token) router.replace('/');
   }, [router]);
 
-  const handleLogin = async () => {
+  const handleLogin = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    if (loading) return;
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/users/login`, {
@@ -50,33 +52,35 @@ export default function LoginPage() {
   };
 
   return (
-    <PageContainer>
-      <Input
-        type='email'
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        placeholder='メールアドレス'
-        className='mb-4'
-      />
-      <Input
-        type='password'
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        placeholder='パスワード'
-        className='mb-4'
-      />
-      <Button onClick={handleLogin} disabled={loading} className='mb-3'>
-        {loading ? 'ログイン中...' : 'ログイン'}
-      </Button>
-      <Button variant='secondary' onClick={() => router.push('/register')}>
-        新規登録
-      </Button>
-      <LinkButton href='/users' center className='mt-3'>
-        ユーザーリストを見る
-      </LinkButton>
-      <LinkButton href='/reset-password' center className='mt-3'>
-        パスワードをお忘れの方はこちら
-      </LinkButton>
+    <PageContainer className='justify-start py-12 sm:justify-center'>
+      <form className='flex flex-col gap-4' onSubmit={handleLogin}>
+        <Input
+          type='email'
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder='メールアドレス'
+        />
+        <Input
+          type='password'
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          placeholder='パスワード'
+        />
+        <Button type='submit' disabled={loading}>
+          {loading ? 'ログイン中...' : 'ログイン'}
+        </Button>
+        <Button type='button' variant='secondary' onClick={() => router.push('/register')}>
+          新規登録
+        </Button>
+      </form>
+      <div className='mt-6 flex flex-col gap-2'>
+        <LinkButton href='/users' center>
+          ユーザーリストを見る
+        </LinkButton>
+        <LinkButton href='/reset-password' center>
+          パスワードをお忘れの方はこちら
+        </LinkButton>
+      </div>
     </PageContainer>
   );
 }

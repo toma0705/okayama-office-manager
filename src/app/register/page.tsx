@@ -6,7 +6,7 @@
  * - API: GET /api/offices, POST /api/users
  * - Auth: 公開（管理者が最初に利用する想定も可）
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageContainer } from '@/Components/layouts/PageContainer';
 import { Input } from '@/Components/ui/Input';
@@ -51,7 +51,8 @@ export default function RegisterPage() {
     };
   }, [iconPreviewUrl]);
 
-  const addUser = async () => {
+  const addUser = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     setErrorMessage('');
     setErrorDetail(null);
     if (!name || !email || !password || !iconFile || !officeCode) {
@@ -120,90 +121,99 @@ export default function RegisterPage() {
   };
 
   return (
-    <PageContainer className='justify-start'>
-      <h1 className='text-center mb-6 text-2xl'>新規ユーザー登録</h1>
-      <div className='flex flex-col gap-2 mb-4'>
-        <select
-          value={officeCode}
-          onChange={e => setOfficeCode(e.target.value)}
-          className='w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-[#7bc062] focus:outline-none'
-          disabled={offices.length === 0}
-        >
-          <option value='' disabled>
-            {offices.length === 0 ? 'オフィス情報を読み込み中…' : 'オフィスを選択してください'}
-          </option>
-          {offices.map(option => (
-            <option key={option.id} value={option.code}>
-              {option.name}
+    <PageContainer className='justify-start py-12 sm:justify-center'>
+      <form className='flex flex-col gap-4' onSubmit={addUser} autoComplete='off'>
+        <h1 className='text-center text-2xl'>新規ユーザー登録</h1>
+        <div className='flex flex-col gap-2'>
+          <select
+            value={officeCode}
+            onChange={e => setOfficeCode(e.target.value)}
+            className='w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-[#7bc062] focus:outline-none'
+            disabled={offices.length === 0}
+          >
+            <option value='' disabled>
+              {offices.length === 0 ? 'オフィス情報を読み込み中…' : 'オフィスを選択してください'}
             </option>
-          ))}
-        </select>
-        {offices.length === 0 && (
-          <span className='text-xs text-gray-500'>
-            オフィス情報の取得が完了するまでお待ちください
-          </span>
-        )}
-        {officeTouched && officeCode === '' && offices.length > 0 && (
-          <span className='text-xs text-red-600'>オフィスを選択してください</span>
-        )}
-      </div>
-
-      <Input
-        placeholder='名前を入力'
-        value={name}
-        onChange={e => setName(e.target.value)}
-        className='mb-4'
-      />
-      <Input
-        placeholder='メールアドレス'
-        type='email'
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        className='mb-4'
-      />
-      <Input
-        placeholder='パスワード'
-        type='password'
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        className='mb-4'
-      />
-
-      <label
-        htmlFor='icon-upload'
-        className='block mb-4 py-3 border-2 border-dashed border-[#7bc062] rounded-lg bg-[#f0f8f4] text-[#7bc062] text-center cursor-pointer font-semibold'
-      >
-        {iconFile ? `選択済み: ${iconFile.name}` : 'アイコン画像を選択（必須）'}
-        <input
-          id='icon-upload'
-          type='file'
-          accept='image/*'
-          onChange={e => setIconFile(e.target.files ? e.target.files[0] : null)}
-          className='hidden'
-        />
-        {iconFile && (
-          <div className='mt-4 flex justify-center'>
-            <Avatar alt='icon preview' src={iconPreviewUrl} size={80} />
-          </div>
-        )}
-      </label>
-      {errorMessage && (
-        <div className='mb-3 text-center text-[#d32f2f]'>
-          <p className='font-semibold'>{errorMessage}</p>
-          {errorDetail && (
-            <p className='mt-1 text-xs whitespace-pre-wrap break-words text-[#b71c1c]'>
-              {errorDetail}
-            </p>
+            {offices.map(option => (
+              <option key={option.id} value={option.code}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+          {offices.length === 0 && (
+            <span className='text-xs text-gray-500'>
+              オフィス情報の取得が完了するまでお待ちください
+            </span>
+          )}
+          {officeTouched && officeCode === '' && offices.length > 0 && (
+            <span className='text-xs text-red-600'>オフィスを選択してください</span>
           )}
         </div>
-      )}
 
-      <Button onClick={addUser} className='mb-2'>
-        追加
-      </Button>
-      <Button variant='secondary' onClick={() => router.push('/login')}>
-        ログイン画面に戻る
-      </Button>
+        <Input
+          placeholder='名前を入力'
+          value={name}
+          onChange={e => setName(e.target.value)}
+          autoComplete='name'
+        />
+        <Input
+          placeholder='メールアドレス'
+          type='email'
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          autoComplete='email'
+          autoCorrect='off'
+          autoCapitalize='none'
+          spellCheck={false}
+        />
+        <Input
+          placeholder='パスワード'
+          type='password'
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          autoComplete='new-password'
+          autoCorrect='off'
+          autoCapitalize='none'
+          spellCheck={false}
+          inputMode='text'
+        />
+
+        <label
+          htmlFor='icon-upload'
+          className='block py-3 border-2 border-dashed border-[#7bc062] rounded-lg bg-[#f0f8f4] text-[#7bc062] text-center cursor-pointer font-semibold'
+        >
+          {iconFile ? `選択済み: ${iconFile.name}` : 'アイコン画像を選択（必須）'}
+          <input
+            id='icon-upload'
+            type='file'
+            accept='image/*'
+            onChange={e => setIconFile(e.target.files ? e.target.files[0] : null)}
+            className='hidden'
+          />
+          {iconFile && (
+            <div className='mt-4 flex justify-center'>
+              <Avatar alt='icon preview' src={iconPreviewUrl} size={80} />
+            </div>
+          )}
+        </label>
+        {errorMessage && (
+          <div className='text-center text-[#d32f2f]'>
+            <p className='font-semibold'>{errorMessage}</p>
+            {errorDetail && (
+              <p className='mt-1 text-xs whitespace-pre-wrap break-words text-[#b71c1c]'>
+                {errorDetail}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className='flex flex-col gap-3'>
+          <Button type='submit'>追加</Button>
+          <Button type='button' variant='secondary' onClick={() => router.push('/login')}>
+            ログイン画面に戻る
+          </Button>
+        </div>
+      </form>
     </PageContainer>
   );
 }
