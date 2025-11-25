@@ -1,1 +1,33 @@
 @import 'tailwindcss';
+
+@layer base {
+  input::-webkit-credentials-auto-fill-button,
+  input::-webkit-strong-password-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover {
+    -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0) inset;
+    box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0) inset;
+    -webkit-text-fill-color: inherit;
+    caret-color: inherit;
+  }
+
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px rgba(123, 192, 98, 0.08) inset;
+    box-shadow: 0 0 0px 1000px rgba(123, 192, 98, 0.08) inset;
+    -webkit-text-fill-color: inherit;
+    caret-color: inherit;
+  }
+
+  .ime-inactive {
+    ime-mode: inactive;
+  }
+}
