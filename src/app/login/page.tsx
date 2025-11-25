@@ -52,8 +52,8 @@ export default function LoginPage() {
   };
 
   return (
-    <PageContainer className='justify-start py-12 sm:justify-center'>
-      <form className='flex flex-col gap-4' onSubmit={handleLogin}>
+    <PageContainer className='items-center justify-center gap-10 py-10 sm:py-0'>
+      <form className='flex w-full max-w-sm flex-col gap-4' onSubmit={handleLogin}>
         <Input
           type='email'
           value={email}
@@ -73,7 +73,7 @@ export default function LoginPage() {
           新規登録
         </Button>
       </form>
-      <div className='mt-6 flex flex-col gap-2'>
+      <div className='mt-4 flex w-full max-w-sm flex-col gap-2'>
         <LinkButton href='/users' center>
           ユーザーリストを見る
         </LinkButton>
