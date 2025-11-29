@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..', '..');
 const outputDir = path.join(projectRoot, 'src', 'generated', 'openapi-client');
-const configPath = path.join('openapi', 'ts-client-config.yaml');
+const relativeConfigPath = path.join('openapi', 'ts-client-config.yaml');
 
 async function main() {
   await ensureDockerModeGeneration();
@@ -32,10 +32,24 @@ async function cleanupOutput() {
 
 async function runGenerator() {
   const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  await exec(command, ['openapi-generator-cli', 'generate', '-c', configPath], {
+  const configArg = getConfigPathForCli();
+  await exec(command, ['openapi-generator-cli', 'generate', '-c', configArg], {
     cwd: projectRoot,
     env: { ...process.env, OPENAPI_GENERATOR_SKIP_INSTALL_CHECK: 'true' },
   });
+}
+
+function getConfigPathForCli() {
+  const isDocker =
+    process.env.OPENAPI_GENERATOR_USE_DOCKER &&
+    process.env.OPENAPI_GENERATOR_USE_DOCKER !== 'false' &&
+    process.env.OPENAPI_GENERATOR_USE_DOCKER !== '0';
+
+  if (isDocker) {
+    return path.posix.join('/local', relativeConfigPath.replace(/\\/g, '/'));
+  }
+
+  return relativeConfigPath;
 }
 
 async function finalizePackageJson() {

@@ -306,7 +306,7 @@ paths:
                   description: 対象ユーザー名
                 status:
                   type: string
-                  description: ``入室`` または ``退室`` などのステータス文字列
+                  description: '「入室」または「退室」などのステータス文字列'
                 officeCode:
                   type: string
                   nullable: true
