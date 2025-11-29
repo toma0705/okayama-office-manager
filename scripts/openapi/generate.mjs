@@ -6,95 +6,138 @@ import fs from 'node:fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const projectRoot = path.resolve(__dirname, '..', '..');
-const outputDir = path.join(projectRoot, 'src', 'generated', 'openapi-client');
-const relativeConfigPath = path.join('openapi', 'ts-client-config.yaml');
+const relativeSpecPath = path.join('openapi', 'openapi.yaml');
+const relativeOutputPath = path.join('src', 'generated', 'openapi-client');
+const outputDir = path.join(projectRoot, relativeOutputPath);
+
+const generatorCli = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const additionalProps = [
+  'supportsES6=true',
+  'modelPropertyNaming=camelCase',
+  'withSeparateModelsAndApi=true',
+  'npmName=@office-manager/api-client',
+  'npmVersion=0.1.0',
+  'typescriptThreePlus=true',
+].join(',');
 
 async function main() {
-  await ensureDockerModeGeneration();
+  await ensureDockerMode();
   await cleanupOutput();
-  await runGenerator();
+  await runOpenApiGenerator();
   await finalizePackageJson();
-  console.log('✅ OpenAPI TypeScript client regenerated at', path.relative(projectRoot, outputDir));
+  await ensureBuildArtifacts();
+  console.log('✅ OpenAPI TypeScript client generated at src/generated/openapi-client');
 }
 
-async function ensureDockerModeGeneration() {
-  const envUseDocker = process.env.OPENAPI_GENERATOR_USE_DOCKER;
-  if (envUseDocker && envUseDocker !== 'false' && envUseDocker !== '0') {
-    return;
+async function ensureDockerMode() {
+  const flag = process.env.OPENAPI_GENERATOR_USE_DOCKER;
+  if (!flag || flag === 'false' || flag === '0') {
+    process.env.OPENAPI_GENERATOR_USE_DOCKER = 'true';
   }
-  process.env.OPENAPI_GENERATOR_USE_DOCKER = 'true';
+}
+
+function isDockerEnabled() {
+  return (
+    process.env.OPENAPI_GENERATOR_USE_DOCKER &&
+    process.env.OPENAPI_GENERATOR_USE_DOCKER !== 'false' &&
+    process.env.OPENAPI_GENERATOR_USE_DOCKER !== '0'
+  );
+}
+
+function resolvePathForCli(relativePath) {
+  if (isDockerEnabled()) {
+    return path.posix.join('/local', relativePath.replace(/\\/g, '/'));
+  }
+
+  return path.join(projectRoot, relativePath);
 }
 
 async function cleanupOutput() {
   await fs.rm(outputDir, { recursive: true, force: true });
 }
 
-async function runGenerator() {
-  const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const configArg = getConfigPathForCli();
-  await exec(command, ['openapi-generator-cli', 'generate', '-c', configArg], {
+async function runOpenApiGenerator() {
+  const specPathForCli = resolvePathForCli(relativeSpecPath);
+  const outputPathForCli = resolvePathForCli(relativeOutputPath);
+  const args = [
+    'openapi-generator-cli',
+    'generate',
+    '-g',
+    'typescript-fetch',
+    '-i',
+    specPathForCli,
+    '-o',
+    outputPathForCli,
+    '--additional-properties',
+    additionalProps,
+    '--skip-validate-spec', // 必要なら削除
+  ];
+
+  await exec(generatorCli, args, {
     cwd: projectRoot,
     env: { ...process.env, OPENAPI_GENERATOR_SKIP_INSTALL_CHECK: 'true' },
   });
 }
 
-function getConfigPathForCli() {
-  const isDocker =
-    process.env.OPENAPI_GENERATOR_USE_DOCKER &&
-    process.env.OPENAPI_GENERATOR_USE_DOCKER !== 'false' &&
-    process.env.OPENAPI_GENERATOR_USE_DOCKER !== '0';
+async function finalizePackageJson() {
+  const pkgPath = path.join(outputDir, 'package.json');
+  const defaultPkg = {
+    name: '@office-manager/api-client',
+    version: '0.1.0',
+    private: false,
+    sideEffects: false,
+    main: './dist/index.js',
+    module: './dist/esm/index.js',
+    types: './dist/index.d.ts',
+    files: ['dist', 'README.md'],
+    scripts: {
+      build: 'tsc -p tsconfig.json && tsc -p tsconfig.esm.json',
+      clean: 'rimraf dist',
+    },
+    dependencies: {
+      tslib: '^2.6.2',
+    },
+    devDependencies: {
+      typescript: '^5.3.3',
+      rimraf: '^5.0.0',
+    },
+  };
 
-  if (isDocker) {
-    return path.posix.join('/local', relativeConfigPath.replace(/\\/g, '/'));
+  let pkg = defaultPkg;
+  try {
+    const raw = await fs.readFile(pkgPath, 'utf8');
+    pkg = { ...defaultPkg, ...JSON.parse(raw) };
+    pkg.files = Array.from(new Set([...(pkg.files ?? []), 'dist', 'README.md']));
+    pkg.scripts = { ...defaultPkg.scripts, ...(pkg.scripts ?? {}) };
+    pkg.dependencies = { ...defaultPkg.dependencies, ...(pkg.dependencies ?? {}) };
+    pkg.devDependencies = { ...defaultPkg.devDependencies, ...(pkg.devDependencies ?? {}) };
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
   }
 
-  return relativeConfigPath;
+  await fs.writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
-async function finalizePackageJson() {
-  const packageJsonPath = path.join(outputDir, 'package.json');
-  let pkg = {};
-
+async function ensureBuildArtifacts() {
+  const npmIgnorePath = path.join(outputDir, '.npmignore');
   try {
-    const raw = await fs.readFile(packageJsonPath, 'utf8');
-    pkg = JSON.parse(raw);
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      throw error;
-    }
-    pkg = {};
+    await fs.access(npmIgnorePath);
+  } catch {
+    await fs.writeFile(npmIgnorePath, 'node_modules\nnpm-debug.log\n');
   }
-
-  pkg.name = '@office-manager/api-client';
-  pkg.version = pkg.version ?? '0.1.0';
-  pkg.private = false;
-  pkg.publishConfig = { ...(pkg.publishConfig ?? {}), access: 'restricted' };
-  pkg.main = pkg.main ?? './dist/index.js';
-  pkg.module = pkg.module ?? './dist/esm/index.js';
-  pkg.types = pkg.types ?? './dist/index.d.ts';
-  pkg.sideEffects = pkg.sideEffects ?? false;
-
-  const files = new Set(pkg.files ?? []);
-  files.add('dist');
-  files.add('README.md');
-  pkg.files = Array.from(files);
-
-  await fs.mkdir(outputDir, { recursive: true });
-  await fs.writeFile(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
 function exec(command, args, options) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: 'inherit', ...options });
     child.on('error', reject);
-    child.on('exit', code => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`));
-      }
-    });
+    child.on('exit', code =>
+      code === 0
+        ? resolve()
+        : reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`)),
+    );
   });
 }
 
