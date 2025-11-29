@@ -1,0 +1,51 @@
+name: Publish OpenAPI SDK
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'openapi/**'
+      - 'scripts/openapi/**'
+      - '.github/workflows/publish-openapi-client.yml'
+  workflow_dispatch:
+
+jobs:
+  generate-and-publish:
+    name: Generate & Publish SDK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate SDK from OpenAPI
+        run: npm run openapi:generate
+
+      - name: Install SDK dependencies
+        working-directory: src/generated/openapi-client
+        run: npm install
+
+      - name: Build SDK
+        working-directory: src/generated/openapi-client
+        run: npm run build
+
+      - name: Configure npm authentication
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > $HOME/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish SDK package
+        working-directory: src/generated/openapi-client
+        run: npm publish --access restricted
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

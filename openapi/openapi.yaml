@@ -1,0 +1,514 @@
+openapi: 3.0.3
+info:
+  title: Office Manager API
+  version: 0.1.0
+  description: |
+    Web とモバイルクライアントから共通で利用する Office Manager バックエンド API の OpenAPI 仕様です。
+    仕様は開発中であり、今後変更される可能性があります。
+  contact:
+    name: Office Manager Team
+    url: https://example.com
+    email: dev@example.com
+servers:
+  - url: https://api.example.com
+    description: Production server (replace with actual hostname)
+  - url: http://localhost:3000/api
+    description: Local development server (Next.js App Router)
+tags:
+  - name: Users
+    description: ユーザー管理や認証に関するエンドポイント
+  - name: Offices
+    description: オフィス情報の取得エンドポイント
+  - name: Notifications
+    description: 外部サービスへの通知連携
+  - name: Maintenance
+    description: システム保守・ヘルスチェック関連
+paths:
+  /users:
+    get:
+      tags: [Users]
+      summary: ユーザー一覧の取得
+      description: 登録フォームなどで利用するためのユーザー一覧を返します。`officeCode` を指定した場合は該当オフィスのユーザーのみに絞り込みます。
+      parameters:
+        - name: officeCode
+          in: query
+          description: フィルタ対象のオフィスコード（大文字・小文字は区別されません）
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserListItem'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+    post:
+      tags: [Users]
+      summary: ユーザー新規登録
+      description: フォームデータを受け取り、プロフィール画像をアップロードした上でユーザーを作成します。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - icon
+                - officeCode
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                icon:
+                  type: string
+                  format: binary
+                  description: プロフィール画像ファイル
+                officeCode:
+                  type: string
+                  description: 登録先オフィスのコード（大文字・小文字は区別されません）
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithOffice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: メールアドレス重複
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: ユーザー詳細の取得
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: ユーザー削除
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      responses:
+        '200':
+          description: 削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+    patch:
+      tags: [Users]
+      summary: ユーザーノートの更新
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - note
+              properties:
+                note:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/login:
+    post:
+      tags: [Users]
+      summary: ログイン
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: 認証成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user
+                  - token
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserSafe'
+                  token:
+                    type: string
+                    description: Bearer トークン（JWT）
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 認証済みユーザー情報
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user
+                  - enteredUsers
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserSafe'
+                  enteredUsers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EnteredUser'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/reset-password-request:
+    post:
+      tags: [Users]
+      summary: パスワードリセット申請
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: 申請を受け付けました（対象ユーザーが存在しない場合も同様の応答）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/reset-password/{token}:
+    post:
+      tags: [Users]
+      summary: パスワードリセット実行
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: リセットトークン
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: パスワードをリセットしました
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /notify:
+    post:
+      tags: [Notifications]
+      summary: Discord 通知送信
+      description: 入退室イベントを Discord Webhook に投稿します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user
+                - status
+              properties:
+                user:
+                  type: string
+                  description: 対象ユーザー名
+                status:
+                  type: string
+                  description: ``入室`` または ``退室`` などのステータス文字列
+                officeCode:
+                  type: string
+                  nullable: true
+                note:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: 通知送信に成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /offices:
+    get:
+      tags: [Offices]
+      summary: オフィス一覧の取得
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Office'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /warmup:
+    get:
+      tags: [Maintenance]
+      summary: Prisma クライアントウォームアップ
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - timestamp
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+    head:
+      tags: [Maintenance]
+      summary: ヘルスチェック
+      responses:
+        '200':
+          description: 稼働中
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UserIdPathParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+      description: ユーザーID
+  schemas:
+    Office:
+      type: object
+      required:
+        - id
+        - code
+        - name
+      properties:
+        id:
+          type: integer
+          format: int32
+        code:
+          type: string
+        name:
+          type: string
+    UserListItem:
+      type: object
+      required:
+        - id
+        - name
+        - iconFileName
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        iconFileName:
+          type: string
+        office:
+          allOf:
+            - $ref: '#/components/schemas/Office'
+          nullable: true
+    UserSafe:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - iconFileName
+        - officeId
+        - office
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        iconFileName:
+          type: string
+          description: 公開URL
+        note:
+          type: string
+          nullable: true
+        entered:
+          type: boolean
+        enteredAt:
+          type: string
+          format: date-time
+          nullable: true
+        exitedAt:
+          type: string
+          format: date-time
+          nullable: true
+        officeId:
+          type: integer
+          format: int32
+        office:
+          $ref: '#/components/schemas/Office'
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/UserSafe'
+        - type: object
+          properties:
+            password:
+              type: string
+              description: ハッシュ化されたパスワード
+            resetToken:
+              type: string
+              nullable: true
+            resetTokenExpires:
+              type: string
+              format: date-time
+              nullable: true
+    UserWithOffice:
+      allOf:
+        - $ref: '#/components/schemas/UserSafe'
+    EnteredUser:
+      allOf:
+        - $ref: '#/components/schemas/UserSafe'
+    MessageResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+          nullable: true
+  responses:
+    BadRequest:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 対象が見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnexpectedError:
+      description: 予期しないエラーが発生しました
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
