@@ -144,6 +144,46 @@ Next.js + Prisma + JWT 認証によるオフィス管理システムのポート
 
 - `Office` テーブルを新設し、ユーザーごとに所属オフィスを管理
 - ログイン後のダッシュボードでは所属オフィスのメンバーのみを自動フィルタ
+- UI 上でも所属オフィスを明示して操作コンテキストを維持
+
+### 環境別ファイル管理
+
+- **開発 / 本番共通**: Supabase Storage の `office-manager-icon` バケットに直接アップロード
+- **公開アイコン URL**: アップロード後に Supabase から取得した公開 URL を DB に保存し、Next.js Image コンポーネントで表示
+- **サービスロールキー管理**: サーバーサイドのみで Supabase のサービスロールキーを利用し、クライアント側からは公開キーのみを使用
+
+## OpenAPI ベースの SDK 運用
+
+Web/Native 双方から同じバックエンド API を利用するため、OpenAPI 仕様 (`openapi/openapi.yaml`) をソース・オブ・トゥルースとして TypeScript SDK を自動生成しています。
+
+### 手動生成手順
+
+1. **Docker Desktop を起動**し、`openapitools/openapi-generator-cli:v7.5.0` イメージが利用できる状態にする。
+2. ルートディレクトリで `npm run openapi:generate` を実行。
+   - `scripts/openapi/generate.mjs` が Docker モードで OpenAPI Generator を呼び出し、`src/generated/openapi-client` を再生成します。
+   - 生成後に `package.json` を補正し、`@office-manager/api-client` として publish 可能な構成を維持します。
+
+生成された SDK には `dist/`（ビルド成果物）を出力するための `npm run build` スクリプトが含まれます。Web/Native プロジェクトでは以下のように依存追加して利用します。
+
+```bash
+npm install @office-manager/api-client
+```
+
+### CI での自動 publish
+
+`.github/workflows/publish-openapi-client.yml` は `openapi/**` に変更が入った push をトリガーし、以下を実行します。
+
+- `npm run openapi:generate` で SDK を再生成
+- `src/generated/openapi-client` で `npm install` → `npm run build`
+- `npm publish --access restricted`
+
+`NPM_TOKEN` シークレットを設定することで Private npm レジストリへ自動公開されます。必要に応じて `workflow_dispatch` で手動実行も可能です。
+
+### セキュリティ実装
+
+- bcryptjs による安全なパスワードハッシュ化
+- JWT トークン認証（7 日間有効）
+- CORS 設定（相対 URL 使用）
 
 ### API エンドポイントの相対パス化
 
