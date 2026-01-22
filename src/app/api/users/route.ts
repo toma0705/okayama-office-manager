@@ -78,6 +78,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ドメイン制限
+    if (!email.endsWith('@4nonome.com')) {
+      return NextResponse.json(
+        { error: 'メールアドレスは @4nonome.com ドメインのみ登録可能です' },
+        { status: 400 },
+      );
+    }
+
     // メールアドレスの重複チェック
     const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) {

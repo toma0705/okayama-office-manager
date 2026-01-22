@@ -62,6 +62,12 @@ export default function RegisterPage() {
       else alert('所属オフィスの選択は必須です');
       return;
     }
+
+    if (!email.endsWith('@4nonome.com')) {
+      alert('メールアドレスは @4nonome.com ドメインのみ登録可能です');
+      return;
+    }
+
     let shouldResetSubmitting = true;
     setIsSubmitting(true);
     try {
