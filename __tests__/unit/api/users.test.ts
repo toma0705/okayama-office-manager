@@ -91,7 +91,7 @@ describe('POST /api/users', () => {
     const form = new FormData();
     const icon = createMockFile();
     form.set('name', 'a');
-    form.set('email', 'dup@example.com');
+    form.set('email', 'dup@4nonome.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
     form.set('officeCode', 'OKAYAMA');
@@ -105,7 +105,7 @@ describe('POST /api/users', () => {
     const form = new FormData();
     const icon = createMockFile({ fail: true });
     form.set('name', 'a');
-    form.set('email', 'b@example.com');
+    form.set('email', 'b@4nonome.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
     form.set('officeCode', 'TOKYO');
@@ -124,7 +124,7 @@ describe('POST /api/users', () => {
     const form = new FormData();
     const icon = createMockFile();
     form.set('name', 'a');
-    form.set('email', 'b@example.com');
+    form.set('email', 'b@4nonome.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
     form.set('officeCode', 'TOKYO');
@@ -148,7 +148,7 @@ describe('POST /api/users', () => {
       name: 'big.png',
     });
     form.set('name', 'a');
-    form.set('email', 'b@example.com');
+    form.set('email', 'b@4nonome.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
     form.set('officeCode', 'TOKYO');
@@ -177,7 +177,7 @@ describe('POST /api/users', () => {
       name: 'huge.png',
     });
     form.set('name', 'a');
-    form.set('email', 'c@example.com');
+    form.set('email', 'c@4nonome.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
     form.set('officeCode', 'TOKYO');
@@ -188,7 +188,7 @@ describe('POST /api/users', () => {
     prisma.user.create = jest.fn().mockResolvedValue({
       id: 1,
       name: 'a',
-      email: 'c@example.com',
+      email: 'c@4nonome.com',
       officeId: 2,
       iconFileName: 'https://example/icon.webp',
       office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
@@ -218,7 +218,7 @@ describe('POST /api/users', () => {
     const form = new FormData();
     const icon = createMockFile();
     form.set('name', 'a');
-    form.set('email', 'b@example.com');
+    form.set('email', 'b@4nonome.com');
     form.set('password', 'pw');
     form.set('icon', icon, icon.name);
     form.set('officeCode', 'TOKYO');
