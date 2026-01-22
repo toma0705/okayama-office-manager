@@ -97,7 +97,7 @@ describe('GET/POST /api/users (root)', () => {
   it('POST: 409 メール重複', async () => {
     const fd = new FormData();
     fd.append('name', 'Taro');
-    fd.append('email', 'taro@example.com');
+    fd.append('email', 'taro@4nonome.com');
     fd.append('password', 'pw');
     const file = new File([Uint8Array.from([1, 2, 3])], 'avatar.png', { type: 'image/png' } as any);
     fd.append('icon', file as any);
@@ -113,7 +113,7 @@ describe('GET/POST /api/users (root)', () => {
   it('POST: 201 成功（Supabaseアップロード）', async () => {
     const fd = new FormData();
     fd.append('name', 'Hanako');
-    fd.append('email', 'hanako@example.com');
+    fd.append('email', 'hanako@4nonome.com');
     fd.append('password', 'pw');
     const file = new File([Uint8Array.from([9, 9, 9])], 'icon.jpg', { type: 'image/jpeg' } as any);
     fd.append('icon', file as any);
@@ -124,7 +124,7 @@ describe('GET/POST /api/users (root)', () => {
     const created = {
       id: 10,
       name: 'Hanako',
-      email: 'hanako@example.com',
+      email: 'hanako@4nonome.com',
       iconFileName: '/uploads/x.png',
       officeId: 2,
       office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
