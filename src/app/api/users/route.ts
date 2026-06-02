@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       });
       imageUrl = publicUrl;
     } catch (error) {
-      console.error('Supabase Storage upload failed:', error);
+      console.error('Storage upload failed:', error);
       return NextResponse.json(
         { error: 'プロフィール画像のアップロードに失敗しました', detail: String(error) },
         { status: 500 },

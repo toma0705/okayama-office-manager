@@ -1,49 +1,87 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseAdminClient } from './supabase';
+import fs from 'fs/promises';
+import path from 'path';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 export const USER_ICON_BUCKET = 'office-manager-icon';
 export const MAX_ICON_SIZE_BYTES = 200 * 1024;
-const PUBLIC_PREFIX = `/storage/v1/object/public/${USER_ICON_BUCKET}/`;
+const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+const PUBLIC_PREFIX = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/` : null;
 
-const getBucket = (): ReturnType<SupabaseClient['storage']['from']> =>
-  getSupabaseAdminClient().storage.from(USER_ICON_BUCKET);
+// S3-compatible (Cloudflare R2) client configuration
+const R2_S3_ENDPOINT = process.env.R2_S3_ENDPOINT; // e.g. https://<account>.r2.dev
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+const R2_REGION = process.env.R2_REGION || process.env.AWS_REGION || 'auto';
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || USER_ICON_BUCKET;
+
+const isS3Configured = Boolean(R2_S3_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
+let s3Client: S3Client | null = null;
+if (isS3Configured) {
+  s3Client = new S3Client({
+    endpoint: R2_S3_ENDPOINT,
+    region: R2_REGION,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID!,
+      secretAccessKey: R2_SECRET_ACCESS_KEY!,
+    },
+    forcePathStyle: false,
+  });
+}
 
 export async function uploadUserIcon(params: {
   buffer: Buffer;
   fileName: string;
   contentType?: string;
 }): Promise<{ publicUrl: string; storagePath: string }> {
-  const { buffer, fileName, contentType } = params;
+  const { buffer, fileName } = params;
   const storagePath = `user-icons/${fileName}`;
-  const bucket = getBucket();
+  // If S3 (R2) is configured, upload there
+  if (s3Client) {
+    try {
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: storagePath,
+          Body: buffer,
+          ContentType: params.contentType || 'application/octet-stream',
+          ACL: 'public-read' as any,
+        }),
+      );
+    } catch (e) {
+      throw new Error(`R2 upload failed: ${String(e)}`);
+    }
 
-  const { error: uploadError } = await bucket.upload(storagePath, buffer, {
-    contentType: contentType || 'application/octet-stream',
-    upsert: false,
-  });
-
-  if (uploadError) {
-    throw new Error(`Supabase Storage upload failed: ${uploadError.message}`);
+    const publicUrl = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/${storagePath}` : `/${storagePath}`;
+    return { publicUrl, storagePath };
   }
 
-  const { data } = bucket.getPublicUrl(storagePath);
-  const publicUrl = data?.publicUrl;
-
-  if (!publicUrl) {
-    throw new Error('Supabase public URL を取得できませんでした');
+  // Fallback: save to local public folder for development
+  const publicDir = path.join(process.cwd(), 'public', 'user-icons');
+  try {
+    await fs.mkdir(publicDir, { recursive: true });
+    await fs.writeFile(path.join(publicDir, fileName), buffer);
+  } catch (e) {
+    throw new Error(`Failed to save icon locally: ${String(e)}`);
   }
 
+  const publicUrl = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/${storagePath}` : `/${storagePath}`;
   return { publicUrl, storagePath };
 }
 
 export function extractUserIconPathFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  const index = url.indexOf(PUBLIC_PREFIX);
-  if (index === -1) {
-    return null;
+  if (PUBLIC_PREFIX) {
+    const index = url.indexOf(PUBLIC_PREFIX);
+    if (index !== -1) {
+      const rawPath = url.substring(index + PUBLIC_PREFIX.length).split('?')[0];
+      return decodeURIComponent(rawPath);
+    }
   }
-  const rawPath = url.substring(index + PUBLIC_PREFIX.length);
-  return decodeURIComponent(rawPath);
+  // If it's a relative path like '/user-icons/..' or 'user-icons/...'
+  if (url.startsWith('/user-icons/') || url.startsWith('user-icons/')) {
+    return url.replace(/^\/+/, '').split('?')[0];
+  }
+  return null;
 }
 
 export async function removeUserIconByUrl(url: string | null | undefined): Promise<{
@@ -56,12 +94,22 @@ export async function removeUserIconByUrl(url: string | null | undefined): Promi
     return { removed: false, storagePath: null };
   }
 
-  const bucket = getBucket();
-  const { error } = await bucket.remove([storagePath]);
-
-  if (error) {
-    return { removed: false, storagePath, error: new Error(error.message) };
+  // If S3 (R2) is configured, delete from bucket
+  if (s3Client) {
+    try {
+      await s3Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: storagePath }));
+      return { removed: true, storagePath };
+    } catch (e) {
+      return { removed: false, storagePath, error: e instanceof Error ? e : new Error(String(e)) };
+    }
   }
 
-  return { removed: true, storagePath };
+  // Fallback: remove local file if exists
+  const localPath = path.join(process.cwd(), 'public', storagePath);
+  try {
+    await fs.unlink(localPath);
+    return { removed: true, storagePath };
+  } catch (e) {
+    return { removed: false, storagePath, error: e instanceof Error ? e : new Error(String(e)) };
+  }
 }

@@ -1,5 +1,6 @@
 'use client';
 import Image from 'next/image';
+import { convertIconUrl } from '@/lib/utils/icon-url';
 
 type Props = {
   src?: string | null;
@@ -11,7 +12,7 @@ type Props = {
 };
 
 export function Avatar({ src, alt, size = 64, rounded = true, style, className }: Props) {
-  const valid = src ? src : '/file.svg';
+  const valid = src ? convertIconUrl(src) : '/file.svg';
   return (
     <Image
       src={valid}
