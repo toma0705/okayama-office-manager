@@ -25,6 +25,12 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
     if (src.startsWith(expectedPrefix)) valid = src;
   }
 
+  // クライアント上で受け取った値を出力（開発時に見やすいように console.log を使用）
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[Avatar] src:', src, 'r2Public:', r2Public, 'isDirectPreview:', isDirectPreview, 'forcePlainImg:', forcePlainImg, 'valid:', valid);
+  }
+
   const commonStyle: React.CSSProperties = {
     borderRadius: '50%',
     objectFit: 'cover',
@@ -49,6 +55,8 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
         fetchPriority='high'
         onError={(e: any) => {
           const target = e.target as HTMLImageElement;
+          // eslint-disable-next-line no-console
+          console.log('[Avatar] img onError', { src: target?.src });
           if (target && target.src !== '/icons/file.svg') target.src = '/icons/file.svg';
         }}
       />
@@ -65,6 +73,8 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
       style={commonStyle}
       onError={(e: any) => {
         const target = e.target as HTMLImageElement;
+        // eslint-disable-next-line no-console
+        console.log('[Avatar] next/image onError', { src: target?.src });
         if (target && target.src !== '/icons/file.svg') target.src = '/icons/file.svg';
       }}
     />
