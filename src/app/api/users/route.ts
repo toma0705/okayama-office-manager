@@ -174,6 +174,12 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+    // ログ出力: 作成されたユーザーの iconFileName を確認
+    try {
+      console.log('ユーザー作成: iconFileName=', user.iconFileName);
+    } catch {
+      // ログ出力は副作用なので失敗しても処理を中断しない
+    }
     return NextResponse.json(user, { status: 201 });
   } catch (e) {
     console.error('ユーザー登録エラー:', e);

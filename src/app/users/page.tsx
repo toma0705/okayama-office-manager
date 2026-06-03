@@ -1,3 +1,11 @@
+/**
+ * ユーザー一覧ページ
+ * - URL: /users
+ * - 概要: 登録されているユーザーの一覧を表示
+ * - API: GET /api/users
+ * - Auth: 公開
+ */
+
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';

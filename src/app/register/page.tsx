@@ -249,7 +249,7 @@ export default function RegisterPage() {
           />
           {iconFile && (
             <div className='mt-4 flex justify-center'>
-              <Avatar alt='icon preview' src={iconPreviewUrl} size={80} />
+              <Avatar alt='icon preview' src={iconPreviewUrl} size={80} allowExternal />
             </div>
           )}
         </label>

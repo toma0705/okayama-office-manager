@@ -1,7 +1,6 @@
 import type { NextConfig } from 'next';
 
 const r2Hostnames = (() => {
-  // Prefer client-exposed public URL, fall back to server-side one
   const candidates = [process.env.NEXT_PUBLIC_R2_PUBLIC_URL, process.env.R2_PUBLIC_URL];
 
   const hostnames = new Set<string>();
