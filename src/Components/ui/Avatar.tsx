@@ -19,7 +19,7 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
   );
   const forcePlainImg = allowExternal && !!(src && typeof src === 'string');
 
-  let valid = '/file.svg';
+  let valid = '/icons/file.svg';
   if (!isDirectPreview && src && typeof src === 'string' && r2Public) {
     const expectedPrefix = `${r2Public.replace(/\/+$/, '')}/user-icons/`;
     if (src.startsWith(expectedPrefix)) valid = src;
@@ -49,7 +49,7 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
         fetchPriority='high'
         onError={(e: any) => {
           const target = e.target as HTMLImageElement;
-          if (target && target.src !== '/file.svg') target.src = '/file.svg';
+          if (target && target.src !== '/icons/file.svg') target.src = '/icons/file.svg';
         }}
       />
     );
@@ -65,7 +65,7 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
       style={commonStyle}
       onError={(e: any) => {
         const target = e.target as HTMLImageElement;
-        if (target && target.src !== '/file.svg') target.src = '/file.svg';
+        if (target && target.src !== '/icons/file.svg') target.src = '/icons/file.svg';
       }}
     />
   );
