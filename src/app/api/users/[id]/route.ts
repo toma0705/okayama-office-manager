@@ -49,7 +49,7 @@ export async function DELETE(_: NextRequest, context: any) {
         const removalResult = await removeUserIconByUrl(user.iconFileName);
 
         if (removalResult.error) {
-          console.warn('Supabase Storage icon deletion failed:', removalResult.error);
+          console.warn('Storage icon deletion failed:', removalResult.error);
         }
 
         if (!removalResult.storagePath) {

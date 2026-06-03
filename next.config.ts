@@ -1,10 +1,8 @@
 import type { NextConfig } from 'next';
 
-const supabaseHostnames = (() => {
-  const candidates = [
-    process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
-    process.env.R2_PUBLIC_URL,
-  ];
+const r2Hostnames = (() => {
+  // Prefer client-exposed public URL, fall back to server-side one
+  const candidates = [process.env.NEXT_PUBLIC_R2_PUBLIC_URL, process.env.R2_PUBLIC_URL];
 
   const hostnames = new Set<string>();
 
@@ -18,7 +16,9 @@ const supabaseHostnames = (() => {
   }
 
   if (hostnames.size === 0) {
-    console.warn('[next.config.ts] R2 の URL 環境変数が未設定です。画像ホストの許可が行われません。');
+    console.warn(
+      '[next.config.ts] R2 の URL 環境変数が未設定です。画像ホストの許可が行われません。',
+    );
   }
 
   return Array.from(hostnames);
@@ -26,7 +26,7 @@ const supabaseHostnames = (() => {
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: supabaseHostnames.flatMap(hostname => [
+    remotePatterns: r2Hostnames.flatMap(hostname => [
       { protocol: 'https', hostname, pathname: '/user-icons/**' },
       { protocol: 'https', hostname, pathname: '/storage/v1/object/public/**' },
     ]),

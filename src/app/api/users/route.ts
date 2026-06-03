@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * ユーザー新規登録API
- * プロフィール画像をSupabase Storageにアップロードしてユーザー情報をDBに保存
+ * プロフィール画像をオブジェクトストレージ（R2等）にアップロードしてユーザー情報をDBに保存
  */
 export async function POST(req: NextRequest) {
   try {

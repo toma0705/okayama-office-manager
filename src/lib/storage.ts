@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 
 export const USER_ICON_BUCKET = 'office-manager-icon';
 export const MAX_ICON_SIZE_BYTES = 200 * 1024;
-const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
 const PUBLIC_PREFIX = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/` : null;
 
 // S3-compatible (Cloudflare R2) client configuration
