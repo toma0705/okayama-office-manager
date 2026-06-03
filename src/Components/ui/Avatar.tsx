@@ -5,21 +5,12 @@ type Props = {
   src?: string | null;
   alt: string;
   size?: number;
-  rounded?: boolean;
   className?: string;
   style?: React.CSSProperties;
   allowExternal?: boolean;
 };
 
-export function Avatar({
-  src,
-  alt,
-  size = 64,
-  rounded = true,
-  style,
-  className,
-  allowExternal = false,
-}: Props) {
+export function Avatar({ src, alt, size = 64, style, className, allowExternal = false }: Props) {
   const r2Public = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const isDirectPreview = !!(
     src &&
@@ -35,7 +26,7 @@ export function Avatar({
   }
 
   const commonStyle: React.CSSProperties = {
-    borderRadius: rounded ? '50%' : 8,
+    borderRadius: '50%',
     objectFit: 'cover',
     background: '#eee',
     aspectRatio: '1 / 1',
