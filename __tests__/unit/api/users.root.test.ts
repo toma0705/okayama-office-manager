@@ -54,7 +54,7 @@ describe('GET/POST /api/users (root)', () => {
     storage.uploadUserIcon.mockReset();
     storage.uploadUserIcon.mockResolvedValue({
       publicUrl:
-        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/default.png',
+        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/default.png',
       storagePath: 'user-icons/default.png',
     });
   });
@@ -110,7 +110,7 @@ describe('GET/POST /api/users (root)', () => {
     expect(res.status).toBe(409);
   });
 
-  it('POST: 201 成功（Supabaseアップロード）', async () => {
+  it('POST: 201 成功（ストレージアップロード）', async () => {
     const fd = new FormData();
     fd.append('name', 'Hanako');
     fd.append('email', 'hanako@4nonome.com');
@@ -135,7 +135,7 @@ describe('GET/POST /api/users (root)', () => {
     }));
     storage.uploadUserIcon.mockResolvedValue({
       publicUrl:
-        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
+        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
       storagePath: 'user-icons/icon.jpg',
     });
 
@@ -146,7 +146,7 @@ describe('GET/POST /api/users (root)', () => {
     expect(json).toEqual({
       ...created,
       iconFileName:
-        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
+        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
     });
   });
 

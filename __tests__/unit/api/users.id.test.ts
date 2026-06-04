@@ -55,10 +55,10 @@ describe('GET/DELETE/PATCH /api/users/[id]', () => {
     expect(fs.unlink).toHaveBeenCalled();
   });
 
-  it('DELETE: Supabase上の画像はストレージから削除する', async () => {
-    const supabaseUrl =
-      'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/icon.png';
-    prisma.user.findUnique.mockResolvedValue({ id: 1, iconFileName: supabaseUrl });
+  it('DELETE: ストレージ上の画像はストレージから削除する', async () => {
+    const storageUrl =
+      'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.png';
+    prisma.user.findUnique.mockResolvedValue({ id: 1, iconFileName: storageUrl });
     storage.removeUserIconByUrl.mockResolvedValue({
       removed: true,
       storagePath: 'user-icons/icon.png',
@@ -67,7 +67,7 @@ describe('GET/DELETE/PATCH /api/users/[id]', () => {
 
     const res = await deleteUser({} as any, ctx(1));
     expect(res.status).toBe(200);
-    expect(storage.removeUserIconByUrl).toHaveBeenCalledWith(supabaseUrl);
+    expect(storage.removeUserIconByUrl).toHaveBeenCalledWith(storageUrl);
     expect(fs.unlink).not.toHaveBeenCalled();
   });
 

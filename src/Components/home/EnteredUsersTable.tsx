@@ -43,13 +43,7 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
             <tr key={u.id}>
               <td className='border-b-2 border-black p-4 text-lg'>
                 <div className='flex items-center justify-center my-1'>
-                  <Avatar
-                    alt={u.name}
-                    src={u.iconFileName}
-                    size={32}
-                    rounded={false}
-                    className='rounded-lg mr-2'
-                  />
+                  <Avatar alt={u.name} src={u.iconFileName} size={32} className='rounded-lg mr-2' />
                   <span className='text-lg'>{u.name}</span>
                 </div>
                 {u.enteredAt ? formatDateTime(u.enteredAt) : '-'}

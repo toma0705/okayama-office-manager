@@ -47,7 +47,7 @@ Web/Native 双方から同じバックエンド API を利用するための Ope
 | データベース       | **PostgreSQL + Prisma Accelerate** | 本番・開発共通                   |
 | ORM                | **Prisma 6.10.1**                  | スキーマ管理・クエリ最適化       |
 | 認証               | **JWT**                            | プラットフォームに非依存         |
-| ファイルストレージ | **Supabase Storage**               | アイコン画像のアップロード       |
+| ファイルストレージ | **R2 / Object Storage**            | アイコン画像のアップロード       |
 | メール送信         | **Nodemailer + Gmail SMTP**        | パスワードリセット機能           |
 | 入退室通知         | **Discord Webhook**                | 入退室を Discord で通知          |
 | デプロイ           | **Vercel**                         | サーバーレス環境でのホスティング |
@@ -72,11 +72,6 @@ Web/Native 双方から同じバックエンド API を利用するための Ope
 
 - **アプリ化の考慮**: Cookie などは Web 前提なのに対して、JWT はさまざまなプラットフォームに対応
 - **技術力向上**: BaaS に頼りたくなかった
-
-### **Supabase Storage**
-
-- **コスト**:　永久無料枠が 1GB あり、このアプリには十分な容量
-- **開発体験**:　設定が簡単
 
 ### **CI/CD パイプライン**
 

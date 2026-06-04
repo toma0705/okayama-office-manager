@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * ユーザー新規登録API
- * プロフィール画像をSupabase Storageにアップロードしてユーザー情報をDBに保存
+ * プロフィール画像をオブジェクトストレージ（R2等）にアップロードしてユーザー情報をDBに保存
  */
 export async function POST(req: NextRequest) {
   try {
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       });
       imageUrl = publicUrl;
     } catch (error) {
-      console.error('Supabase Storage upload failed:', error);
+      console.error('Storage upload failed:', error);
       return NextResponse.json(
         { error: 'プロフィール画像のアップロードに失敗しました', detail: String(error) },
         { status: 500 },
@@ -174,6 +174,12 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+    // ログ出力: 作成されたユーザーの iconFileName を確認
+    try {
+      console.log('ユーザー作成: iconFileName=', user.iconFileName);
+    } catch {
+      // ログ出力は副作用なので失敗しても処理を中断しない
+    }
     return NextResponse.json(user, { status: 201 });
   } catch (e) {
     console.error('ユーザー登録エラー:', e);

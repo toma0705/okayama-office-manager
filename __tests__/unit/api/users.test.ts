@@ -77,7 +77,7 @@ describe('POST /api/users', () => {
     }));
     storage.uploadUserIcon.mockResolvedValue({
       publicUrl:
-        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/default.png',
+        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/default.png',
       storagePath: 'user-icons/default.png',
     });
   });
@@ -120,7 +120,7 @@ describe('POST /api/users', () => {
     expect(res.status).toBe(500);
   });
 
-  it('500: Supabaseアップロード失敗時', async () => {
+  it('500: ストレージアップロード失敗時', async () => {
     const form = new FormData();
     const icon = createMockFile();
     form.set('name', 'a');
@@ -230,7 +230,7 @@ describe('POST /api/users', () => {
     });
     storage.uploadUserIcon.mockResolvedValue({
       publicUrl:
-        'https://example.supabase.co/storage/v1/object/public/office-manager-icon/user-icons/icon.png',
+        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.png',
       storagePath: 'user-icons/icon.png',
     });
     prisma.user.create = jest.fn().mockRejectedValue(new Error('fail'));
@@ -246,7 +246,7 @@ describe('POST /api/users', () => {
     expect(res.status).toBe(400);
   });
 
-  // 画像アップロードやSupabase Storageへの保存の正常系・異常系は、
-  // 実際のSupabase通信をモックしてテストする必要があるため、
+  // 画像アップロードやストレージへの保存の正常系・異常系は、
+  // 実際の通信をモックしてテストする必要があるため、
   // ここでは省略または別途モック実装が必要です。
 });
