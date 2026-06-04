@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
  * プロフィール画像をオブジェクトストレージ（R2等）にアップロードしてユーザー情報をDBに保存
  */
 export async function POST(req: NextRequest) {
+  console.log('POST /api/users called'); // ログ追加
   try {
     const formData = await req.formData();
     const name = formData.get('name')?.toString();
@@ -100,7 +101,9 @@ export async function POST(req: NextRequest) {
     let arrayBuffer: ArrayBuffer;
     try {
       arrayBuffer = await fileObj.arrayBuffer();
+      console.error('try');
     } catch (e) {
+      console.error('aaaaaaaaaaa');
       return NextResponse.json(
         { error: 'ファイル読み込みに失敗しました', detail: String(e) },
         { status: 500 },

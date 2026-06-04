@@ -2,17 +2,15 @@ import fs from 'fs/promises';
 import path from 'path';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
-export const USER_ICON_BUCKET = 'office-manager-icon';
 export const MAX_ICON_SIZE_BYTES = 200 * 1024;
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
 const PUBLIC_PREFIX = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/` : null;
 
-// S3-compatible (Cloudflare R2) client configuration
-const R2_S3_ENDPOINT = process.env.R2_S3_ENDPOINT; // e.g. https://<account>.r2.dev
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-const R2_REGION = process.env.R2_REGION || process.env.AWS_REGION || 'auto';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || USER_ICON_BUCKET;
+const R2_S3_ENDPOINT = process.env.R2_S3_ENDPOINT;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_REGION = process.env.R2_REGION;
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 
 const isS3Configured = Boolean(R2_S3_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
 let s3Client: S3Client | null = null;
@@ -35,7 +33,6 @@ export async function uploadUserIcon(params: {
 }): Promise<{ publicUrl: string; storagePath: string }> {
   const { buffer, fileName } = params;
   const storagePath = `user-icons/${fileName}`;
-  // If S3 (R2) is configured, upload there
   if (s3Client) {
     try {
       await s3Client.send(
@@ -44,7 +41,6 @@ export async function uploadUserIcon(params: {
           Key: storagePath,
           Body: buffer,
           ContentType: params.contentType || 'application/octet-stream',
-          ACL: 'public-read' as any,
         }),
       );
     } catch (e) {
@@ -55,7 +51,10 @@ export async function uploadUserIcon(params: {
     return { publicUrl, storagePath };
   }
 
-  // Fallback: save to local public folder for development
+  if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
+    throw new Error('R2 is not configured in production; set R2_S3_ENDPOINT and credentials.');
+  }
+
   const publicDir = path.join(process.cwd(), 'public', 'user-icons');
   try {
     await fs.mkdir(publicDir, { recursive: true });
