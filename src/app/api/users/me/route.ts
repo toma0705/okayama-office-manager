@@ -4,31 +4,28 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import type { JwtPayload } from '@/types/declaration';
-import jwt from 'jsonwebtoken';
+import { getAuthenticatedUserId } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization');
-
-  if (!auth || !auth.startsWith('Bearer ')) {
-    return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
-  }
-
-  const token = auth.replace('Bearer ', '');
-
   try {
-    const secret = process.env.JWT_SECRET || 'secret';
-    const decoded = jwt.verify(token, secret) as JwtPayload;
+    const userId = getAuthenticatedUserId(req);
+
+    if (!userId) {
+      return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
+    }
 
     // 認証されたユーザー情報を取得
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { id: userId },
       include: {
         office: {
           select: {
             id: true,
             code: true,
             name: true,
+            latitude: true,
+            longitude: true,
+            radiusMeters: true,
           },
         },
       },
@@ -59,6 +56,9 @@ export async function GET(req: NextRequest) {
             id: true,
             code: true,
             name: true,
+            latitude: true,
+            longitude: true,
+            radiusMeters: true,
           },
         },
       },

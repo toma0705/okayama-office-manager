@@ -12,6 +12,9 @@ export async function GET() {
         id: true,
         code: true,
         name: true,
+        latitude: true,
+        longitude: true,
+        radiusMeters: true,
       },
       orderBy: { id: 'asc' },
     });

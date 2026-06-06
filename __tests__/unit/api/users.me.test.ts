@@ -10,10 +10,12 @@ jest.mock('@/lib/prisma', () => ({
   },
 }));
 
-jest.mock('jsonwebtoken', () => ({ verify: jest.fn() }));
+jest.mock('@/lib/auth', () => ({
+  getAuthenticatedUserId: jest.fn(),
+}));
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
-const jwt = jest.requireMock('jsonwebtoken') as any;
+const auth = jest.requireMock('@/lib/auth') as any;
 
 describe('GET /api/users/me', () => {
   beforeEach(() => {
@@ -21,13 +23,14 @@ describe('GET /api/users/me', () => {
   });
 
   it('401: 認証ヘッダーなし', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(null);
     const req = new NextRequest('http://localhost/api/users/me');
     const res = await me(req);
     expect(res.status).toBe(401);
   });
 
   it('401: トークン検証失敗', async () => {
-    jwt.verify.mockImplementation(() => {
+    auth.getAuthenticatedUserId.mockImplementation(() => {
       throw new Error('invalid');
     });
     const req = new NextRequest('http://localhost/api/users/me', {
@@ -38,7 +41,7 @@ describe('GET /api/users/me', () => {
   });
 
   it('404: ユーザーが見つからない', async () => {
-    jwt.verify.mockReturnValue({ id: 1, officeId: 1, officeCode: 'OKAYAMA' });
+    auth.getAuthenticatedUserId.mockReturnValue(1);
     prisma.user.findUnique.mockResolvedValue(null);
     const req = new NextRequest('http://localhost/api/users/me', {
       headers: { Authorization: 'Bearer ok' } as any,
@@ -48,12 +51,19 @@ describe('GET /api/users/me', () => {
   });
 
   it('200: ユーザーと入室者一覧を返す', async () => {
-    jwt.verify.mockReturnValue({ id: 1, officeId: 1, officeCode: 'OKAYAMA' });
+    auth.getAuthenticatedUserId.mockReturnValue(1);
     prisma.user.findUnique.mockResolvedValue({
       id: 1,
       name: 'A',
       officeId: 1,
-      office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
+      office: {
+        id: 1,
+        code: 'OKAYAMA',
+        name: '岡山オフィス',
+        latitude: 34.697131,
+        longitude: 133.927744,
+        radiusMeters: 10,
+      },
     });
     prisma.user.findMany.mockResolvedValue([
       {
@@ -61,7 +71,14 @@ describe('GET /api/users/me', () => {
         name: 'B',
         entered: true,
         officeId: 1,
-        office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
+        office: {
+          id: 1,
+          code: 'OKAYAMA',
+          name: '岡山オフィス',
+          latitude: 34.697131,
+          longitude: 133.927744,
+          radiusMeters: 10,
+        },
       },
     ]);
     const req = new NextRequest('http://localhost/api/users/me', {

@@ -27,10 +27,13 @@ model User {
 }
 
 model Office {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  name         String
+  latitude     Float?
+  longitude    Float?
+  radiusMeters Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        User[]
 }
