@@ -398,6 +398,18 @@ components:
           type: string
         name:
           type: string
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        radiusMeters:
+          type: integer
+          format: int32
+          nullable: true
     UserListItem:
       type: object
       required:

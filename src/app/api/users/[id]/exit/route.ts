@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUserId } from '@/lib/auth';
 
 export async function POST(req: NextRequest, context: any) {
   const { params } = context;
@@ -15,6 +16,16 @@ export async function POST(req: NextRequest, context: any) {
   }
 
   try {
+    const authenticatedUserId = getAuthenticatedUserId(req);
+
+    if (!authenticatedUserId) {
+      return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
+    }
+
+    if (authenticatedUserId !== userId) {
+      return NextResponse.json({ error: '他ユーザーの退室は操作できません' }, { status: 403 });
+    }
+
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {

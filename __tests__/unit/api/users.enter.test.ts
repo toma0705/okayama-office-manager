@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { POST as enter } from '@/app/api/users/[id]/enter/route';
 
+jest.mock('@/lib/auth', () => ({
+  getAuthenticatedUserId: jest.fn(() => 1),
+}));
+
 jest.mock('@/lib/prisma', () => {
   return {
     prisma: {
@@ -32,5 +36,16 @@ describe('POST /api/users/[id]/enter', () => {
 
     expect(res.status).toBe(400);
     expect(json.error).toContain('不正なID');
+  });
+
+  it('403: 他ユーザーの入室操作は拒否', async () => {
+    const auth = jest.requireMock('@/lib/auth') as any;
+    auth.getAuthenticatedUserId.mockReturnValueOnce(99);
+
+    const req = new NextRequest('http://localhost/api/users/1/enter', { method: 'POST' });
+    const context: any = { params: Promise.resolve({ id: '1' }) };
+
+    const res = await enter(req, context);
+    expect(res.status).toBe(403);
   });
 });

@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { POST as exit } from '@/app/api/users/[id]/exit/route';
 
+jest.mock('@/lib/auth', () => ({
+  getAuthenticatedUserId: jest.fn(() => 1),
+}));
+
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     user: {
@@ -11,10 +15,12 @@ jest.mock('@/lib/prisma', () => ({
 }));
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
+const auth = jest.requireMock('@/lib/auth') as any;
 
 describe('POST /api/users/[id]/exit', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    auth.getAuthenticatedUserId.mockReturnValue(1);
   });
 
   it('正常系: 退室に成功', async () => {
@@ -48,6 +54,7 @@ describe('POST /api/users/[id]/exit', () => {
   });
 
   it('ユーザー未存在: 404', async () => {
+    auth.getAuthenticatedUserId.mockReturnValueOnce(2);
     prisma.user.findUnique.mockResolvedValue(null);
 
     const req = new NextRequest('http://localhost/api/users/2/exit', { method: 'POST' });
@@ -60,6 +67,7 @@ describe('POST /api/users/[id]/exit', () => {
   });
 
   it('すでに退室済み: 400', async () => {
+    auth.getAuthenticatedUserId.mockReturnValueOnce(3);
     prisma.user.findUnique.mockResolvedValue({ id: 3, entered: false });
 
     const req = new NextRequest('http://localhost/api/users/3/exit', { method: 'POST' });
@@ -69,5 +77,15 @@ describe('POST /api/users/[id]/exit', () => {
     const json: any = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toContain('退室済み');
+  });
+
+  it('403: 他ユーザーの退室操作は拒否', async () => {
+    auth.getAuthenticatedUserId.mockReturnValueOnce(99);
+
+    const req = new NextRequest('http://localhost/api/users/1/exit', { method: 'POST' });
+    const context: any = { params: Promise.resolve({ id: '1' }) };
+
+    const res = await exit(req, context);
+    expect(res.status).toBe(403);
   });
 });
