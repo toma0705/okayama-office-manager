@@ -14,6 +14,10 @@ jest.mock('@/lib/auth', () => ({
   getAuthenticatedUserId: jest.fn(),
 }));
 
+jest.mock('@/lib/storage', () => ({
+  resolveUserIconUrl: jest.fn((value: string) => `https://example.r2.dev/${value}`),
+}));
+
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const auth = jest.requireMock('@/lib/auth') as any;
 
@@ -55,6 +59,7 @@ describe('GET /api/users/me', () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 1,
       name: 'A',
+      iconFileName: 'me.png',
       officeId: 1,
       office: {
         id: 1,
@@ -69,6 +74,7 @@ describe('GET /api/users/me', () => {
       {
         id: 2,
         name: 'B',
+        iconFileName: 'entered.png',
         entered: true,
         officeId: 1,
         office: {
@@ -88,6 +94,8 @@ describe('GET /api/users/me', () => {
     const json: any = await res.json();
     expect(res.status).toBe(200);
     expect(json.user.id).toBe(1);
+    expect(json.user.iconFileName).toBe('https://example.r2.dev/me.png');
     expect(Array.isArray(json.enteredUsers)).toBeTruthy();
+    expect(json.enteredUsers[0].iconFileName).toBe('https://example.r2.dev/entered.png');
   });
 });

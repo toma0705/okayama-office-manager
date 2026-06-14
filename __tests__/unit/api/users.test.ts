@@ -17,6 +17,11 @@ jest.mock('@/lib/storage', () => ({
   MAX_ICON_SIZE_BYTES: 200 * 1024,
   uploadUserIcon: jest.fn(),
   removeUserIconByUrl: jest.fn(),
+  resolveUserIconUrl: jest.fn((value: string) =>
+    !value.startsWith('http') && !value.startsWith('/')
+      ? `https://example.r2.dev/${value}`
+      : value,
+  ),
 }));
 
 jest.mock('@/utils/image', () => ({
@@ -76,9 +81,8 @@ describe('POST /api/users', () => {
       originalBytes: buffer.length,
     }));
     storage.uploadUserIcon.mockResolvedValue({
-      publicUrl:
-        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/default.png',
-      storagePath: 'user-icons/default.png',
+      publicUrl: 'https://example.r2.dev/default.png',
+      storagePath: 'default.png',
     });
   });
 
@@ -190,7 +194,7 @@ describe('POST /api/users', () => {
       name: 'a',
       email: 'c@4nonome.com',
       officeId: 2,
-      iconFileName: 'https://example/icon.webp',
+      iconFileName: 'icon.webp',
       office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
     });
 
@@ -229,9 +233,8 @@ describe('POST /api/users', () => {
       name: '東京オフィス',
     });
     storage.uploadUserIcon.mockResolvedValue({
-      publicUrl:
-        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.png',
-      storagePath: 'user-icons/icon.png',
+      publicUrl: 'https://example.r2.dev/icon.png',
+      storagePath: 'icon.png',
     });
     prisma.user.create = jest.fn().mockRejectedValue(new Error('fail'));
     const req = { formData: async () => form } as any;
