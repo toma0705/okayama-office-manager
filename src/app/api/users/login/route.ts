@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { resolveUserIconUrl } from '@/lib/storage';
 
 // JWTトークンの有効期限（7日間）
 const JWT_EXPIRES_IN = '7d';
@@ -63,6 +64,11 @@ export async function POST(req: NextRequest) {
   );
 
   const { password: _pw, ...userSafe } = user;
-
-  return NextResponse.json({ user: userSafe, token });
+  return NextResponse.json({
+    user: {
+      ...userSafe,
+      iconFileName: resolveUserIconUrl(userSafe.iconFileName) ?? userSafe.iconFileName,
+    },
+    token,
+  });
 }

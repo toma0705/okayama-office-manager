@@ -21,6 +21,11 @@ jest.mock('@/lib/storage', () => ({
   MAX_ICON_SIZE_BYTES: 200 * 1024,
   uploadUserIcon: jest.fn(),
   removeUserIconByUrl: jest.fn(),
+  resolveUserIconUrl: jest.fn((value: string) =>
+    !value.startsWith('http') && !value.startsWith('/')
+      ? `https://example.r2.dev/${value}`
+      : value,
+  ),
 }));
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
@@ -53,9 +58,8 @@ describe('GET/POST /api/users (root)', () => {
     (process.env as any).NODE_ENV = 'development';
     storage.uploadUserIcon.mockReset();
     storage.uploadUserIcon.mockResolvedValue({
-      publicUrl:
-        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/default.png',
-      storagePath: 'user-icons/default.png',
+      publicUrl: 'https://example.r2.dev/default.png',
+      storagePath: 'default.png',
     });
   });
 
@@ -68,14 +72,14 @@ describe('GET/POST /api/users (root)', () => {
       {
         id: 1,
         name: 'A',
-        iconFileName: '/uploads/a.png',
+        iconFileName: 'a.png',
         officeId: 1,
         office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
       },
       {
         id: 2,
         name: 'B',
-        iconFileName: '/uploads/b.png',
+        iconFileName: 'b.png',
         officeId: 2,
         office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
       },
@@ -85,7 +89,10 @@ describe('GET/POST /api/users (root)', () => {
     const res = await usersGet({ nextUrl: { searchParams: new URLSearchParams() } } as any);
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual(list);
+    expect(json).toEqual([
+      { ...list[0], iconFileName: 'https://example.r2.dev/a.png' },
+      { ...list[1], iconFileName: 'https://example.r2.dev/b.png' },
+    ]);
   });
 
   it('POST: 400 必須フィールド不足', async () => {
@@ -125,7 +132,7 @@ describe('GET/POST /api/users (root)', () => {
       id: 10,
       name: 'Hanako',
       email: 'hanako@4nonome.com',
-      iconFileName: '/uploads/x.png',
+      iconFileName: 'icon.jpg',
       officeId: 2,
       office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
     };
@@ -134,9 +141,8 @@ describe('GET/POST /api/users (root)', () => {
       iconFileName: data.iconFileName,
     }));
     storage.uploadUserIcon.mockResolvedValue({
-      publicUrl:
-        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
-      storagePath: 'user-icons/icon.jpg',
+      publicUrl: 'https://example.r2.dev/icon.jpg',
+      storagePath: 'icon.jpg',
     });
 
     const req = { formData: async () => fd } as any;
@@ -145,8 +151,7 @@ describe('GET/POST /api/users (root)', () => {
     const json = await res.json();
     expect(json).toEqual({
       ...created,
-      iconFileName:
-        'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.jpg',
+      iconFileName: 'https://example.r2.dev/icon.jpg',
     });
   });
 

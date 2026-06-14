@@ -26,7 +26,7 @@ const r2Hostnames = (() => {
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: r2Hostnames.flatMap(hostname => [
-      { protocol: 'https', hostname, pathname: '/user-icons/**' },
+      { protocol: 'https', hostname, pathname: '/**' },
       { protocol: 'https', hostname, pathname: '/storage/v1/object/public/**' },
     ]),
   },

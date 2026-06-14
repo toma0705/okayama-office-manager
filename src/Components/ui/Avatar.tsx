@@ -12,18 +12,27 @@ type Props = {
 
 export function Avatar({ src, alt, size = 64, style, className, allowExternal = false }: Props) {
   const r2Public = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
-  // プレビュー判定: blob:, data:, もしくはルート相対パス
-  const isDirectPreview = !!(
+  const resolvedSrc =
     src &&
     typeof src === 'string' &&
-    (src.startsWith('blob:') || src.startsWith('data:') || src.startsWith('/'))
+    !src.startsWith('http') &&
+    !src.startsWith('blob:') &&
+    !src.startsWith('data:')
+      ? (r2Public ? `${r2Public}/${src.replace(/^\/+/, '')}` : `/icons/${src.replace(/^\/+/, '')}`)
+      : src;
+  const isDirectPreview = !!(
+    resolvedSrc &&
+    typeof resolvedSrc === 'string' &&
+    (resolvedSrc.startsWith('blob:') ||
+      resolvedSrc.startsWith('data:') ||
+      resolvedSrc.startsWith('http'))
   );
-  const forcePlainImg = allowExternal && !!(src && typeof src === 'string');
+  const forcePlainImg = allowExternal && !!(resolvedSrc && typeof resolvedSrc === 'string');
 
-  // next/image に渡す最終 URL を決定するマッピングルール
-  // - 既に R2 ベースならそのまま（それ以外はフォールバック）
   let valid = '/icons/file.svg';
-  if (!isDirectPreview && src && r2Public && src.startsWith(r2Public)) valid = src;
+  if (!isDirectPreview && resolvedSrc) {
+    valid = resolvedSrc;
+  }
 
   const commonStyle: React.CSSProperties = {
     borderRadius: '50%',
@@ -34,15 +43,10 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
     ...(style || {}),
   };
 
-  if ((isDirectPreview || forcePlainImg) && src) {
-    // プレビューや外部 URL を許可した場合は直接 <img> を使う
-    if (typeof window !== 'undefined') {
-      console.log('[Avatar] using <img> preview src ->', src);
-    }
+  if ((isDirectPreview || forcePlainImg) && resolvedSrc) {
     return (
-      // Preview時は next/image で処理できないURLも来るので、直接 <img> を使う
       <img
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         width={size}
         height={size}

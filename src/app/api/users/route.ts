@@ -8,8 +8,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { MAX_ICON_SIZE_BYTES, uploadUserIcon } from '@/lib/storage';
+import { MAX_ICON_SIZE_BYTES, resolveUserIconUrl, uploadUserIcon } from '@/lib/storage';
 import { compressImageToLimit } from '@/utils/image';
+
+const withResolvedIcon = <T extends { iconFileName?: string | null }>(user: T): T => {
+  if (typeof user.iconFileName !== 'string') {
+    return user;
+  }
+
+  return {
+    ...user,
+    iconFileName: resolveUserIconUrl(user.iconFileName) ?? user.iconFileName,
+  };
+};
 
 /**
  * ユーザーリスト取得API
@@ -45,7 +56,7 @@ export async function GET(req: NextRequest) {
         name: 'asc',
       },
     });
-    return NextResponse.json(users);
+    return NextResponse.json(users.map(withResolvedIcon));
   } catch (e) {
     console.error(e);
     return NextResponse.json(
@@ -60,7 +71,6 @@ export async function GET(req: NextRequest) {
  * プロフィール画像をオブジェクトストレージ（R2等）にアップロードしてユーザー情報をDBに保存
  */
 export async function POST(req: NextRequest) {
-  console.log('POST /api/users called'); // ログ追加
   try {
     const formData = await req.formData();
     const name = formData.get('name')?.toString();
@@ -104,9 +114,7 @@ export async function POST(req: NextRequest) {
     let arrayBuffer: ArrayBuffer;
     try {
       arrayBuffer = await fileObj.arrayBuffer();
-      console.error('try');
     } catch (e) {
-      console.error('aaaaaaaaaaa');
       return NextResponse.json(
         { error: 'ファイル読み込みに失敗しました', detail: String(e) },
         { status: 500 },
@@ -138,14 +146,14 @@ export async function POST(req: NextRequest) {
     const finalContentType = compressed.contentType || originalContentType;
     const fileName = `${uuidv4()}.${finalExtension}`;
 
-    let imageUrl: string;
+    let storagePath: string;
     try {
-      const { publicUrl } = await uploadUserIcon({
+      const { storagePath: uploadedStoragePath } = await uploadUserIcon({
         buffer: compressed.buffer,
         fileName,
         contentType: finalContentType,
       });
-      imageUrl = publicUrl;
+      storagePath = uploadedStoragePath;
     } catch (error) {
       console.error('Storage upload failed:', error);
       return NextResponse.json(
@@ -167,7 +175,7 @@ export async function POST(req: NextRequest) {
         name,
         email,
         password: hashedPassword,
-        iconFileName: imageUrl,
+        iconFileName: storagePath,
         officeId: office.id,
       },
       include: {
@@ -183,13 +191,7 @@ export async function POST(req: NextRequest) {
         },
       },
     });
-    // ログ出力: 作成されたユーザーの iconFileName を確認
-    try {
-      console.log('ユーザー作成: iconFileName=', user.iconFileName);
-    } catch {
-      // ログ出力は副作用なので失敗しても処理を中断しない
-    }
-    return NextResponse.json(user, { status: 201 });
+    return NextResponse.json(withResolvedIcon(user), { status: 201 });
   } catch (e) {
     console.error('ユーザー登録エラー:', e);
     return NextResponse.json(

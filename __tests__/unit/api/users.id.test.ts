@@ -14,16 +14,12 @@ jest.mock('@/lib/prisma', () => ({
   },
 }));
 
-jest.mock('fs/promises', () => ({
-  unlink: jest.fn().mockResolvedValue(undefined),
-}));
-
 jest.mock('@/lib/storage', () => ({
   removeUserIconByUrl: jest.fn(),
+  resolveUserIconUrl: jest.fn((value: string) => `https://cdn.example.com/${value}`),
 }));
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
-const fs = jest.requireMock('fs/promises') as any;
 const storage = jest.requireMock('@/lib/storage');
 
 describe('GET/DELETE/PATCH /api/users/[id]', () => {
@@ -38,37 +34,34 @@ describe('GET/DELETE/PATCH /api/users/[id]', () => {
   });
 
   it('GET: 200 取得成功', async () => {
-    const user = { id: 1, name: 'A' };
+    const user = { id: 1, name: 'A', iconFileName: 'a.png' };
     prisma.user.findUnique.mockResolvedValue(user);
     const res = await getUser({} as any, ctx(1));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual(user);
+    expect(json).toEqual({ ...user, iconFileName: 'https://cdn.example.com/a.png' });
   });
 
-  it('DELETE: 200 削除成功（画像があればunlink試行）', async () => {
+  it('DELETE: 200 削除成功（保存URLから削除）', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: 1, iconFileName: 'icon.png' });
-    storage.removeUserIconByUrl.mockResolvedValue({ removed: false, storagePath: null });
+    storage.removeUserIconByUrl.mockResolvedValue({ removed: true, storagePath: 'icon.png' });
     prisma.user.delete.mockResolvedValue({});
     const res = await deleteUser({} as any, ctx(1));
     expect(res.status).toBe(200);
-    expect(fs.unlink).toHaveBeenCalled();
+    expect(storage.removeUserIconByUrl).toHaveBeenCalledWith('icon.png');
   });
 
   it('DELETE: ストレージ上の画像はストレージから削除する', async () => {
-    const storageUrl =
-      'https://example.r2.dev/storage/v1/object/public/office-manager-icon/user-icons/icon.png';
-    prisma.user.findUnique.mockResolvedValue({ id: 1, iconFileName: storageUrl });
+    prisma.user.findUnique.mockResolvedValue({ id: 1, iconFileName: 'icon.png' });
     storage.removeUserIconByUrl.mockResolvedValue({
       removed: true,
-      storagePath: 'user-icons/icon.png',
+      storagePath: 'icon.png',
     });
     prisma.user.delete.mockResolvedValue({});
 
     const res = await deleteUser({} as any, ctx(1));
     expect(res.status).toBe(200);
-    expect(storage.removeUserIconByUrl).toHaveBeenCalledWith(storageUrl);
-    expect(fs.unlink).not.toHaveBeenCalled();
+    expect(storage.removeUserIconByUrl).toHaveBeenCalledWith('icon.png');
   });
 
   it('PATCH: 200 更新成功', async () => {

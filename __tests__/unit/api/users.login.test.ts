@@ -9,6 +9,9 @@ jest.mock('@/lib/prisma', () => ({
 }));
 
 jest.mock('bcryptjs', () => ({ compare: jest.fn() }));
+jest.mock('@/lib/storage', () => ({
+  resolveUserIconUrl: jest.fn((value: string) => `https://example.r2.dev/${value}`),
+}));
 jest.mock('jsonwebtoken', () => {
   const sign = jest.fn(() => 'dummy.jwt.token');
   return {
@@ -71,5 +74,6 @@ describe('POST /api/users/login', () => {
     expect(json.token).toBeDefined();
     expect(json.user.password).toBeUndefined();
     expect(json.user.office.code).toBe('OKAYAMA');
+    expect(json.user.iconFileName).toBe('https://example.r2.dev/x.png');
   });
 });

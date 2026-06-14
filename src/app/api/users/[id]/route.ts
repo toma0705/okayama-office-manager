@@ -6,9 +6,18 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { removeUserIconByUrl } from '@/lib/storage';
-import fs from 'fs/promises';
-import path from 'path';
+import { removeUserIconByUrl, resolveUserIconUrl } from '@/lib/storage';
+
+const withResolvedIcon = <T extends { iconFileName?: string | null }>(user: T): T => {
+  if (typeof user.iconFileName !== 'string') {
+    return user;
+  }
+
+  return {
+    ...user,
+    iconFileName: resolveUserIconUrl(user.iconFileName) ?? user.iconFileName,
+  };
+};
 
 /**
  * 指定されたIDのユーザー情報を取得
@@ -24,7 +33,7 @@ export async function GET(_: NextRequest, context: any) {
     return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
   }
 
-  return NextResponse.json(user);
+  return NextResponse.json(withResolvedIcon(user));
 }
 
 /**
@@ -52,17 +61,6 @@ export async function DELETE(_: NextRequest, context: any) {
           console.warn('Storage icon deletion failed:', removalResult.error);
         }
 
-        if (!removalResult.storagePath) {
-          const relativePath = user.iconFileName.startsWith('/')
-            ? user.iconFileName.slice(1)
-            : user.iconFileName;
-          const filePath = path.join(process.cwd(), 'public', relativePath);
-          try {
-            await fs.unlink(filePath);
-          } catch {
-            // ファイルが存在しない場合は無視
-          }
-        }
       } catch (error) {
         console.warn('プロフィール画像削除処理でエラーが発生しました:', error);
       }
@@ -89,7 +87,7 @@ export async function PATCH(req: NextRequest, context: any) {
       data: { note },
     });
 
-    return NextResponse.json(user, { status: 200 });
+    return NextResponse.json(withResolvedIcon(user), { status: 200 });
   } catch (e) {
     return NextResponse.json({ error: '更新に失敗しました', detail: String(e) }, { status: 500 });
   }
