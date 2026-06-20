@@ -6,12 +6,10 @@ import fs from 'node:fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// 💡 基準を「web」フォルダに修正
 const projectRoot = path.resolve(__dirname, '..');
 const relativeSpecPath = path.join('openapi', 'openapi.yaml');
-const relativeOutputPath = path.join('src', 'generated', 'openapi-client');
-const outputDir = path.join(projectRoot, relativeOutputPath);
+const outputDir = '/Users/touma/Desktop/office-manager/api-client';
+const relativeOutputPath = path.relative(projectRoot, outputDir);
 
 const generatorCli = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const additionalProps = [
@@ -25,11 +23,12 @@ const additionalProps = [
 
 async function main() {
   await ensureDockerMode();
-  await cleanupOutput();
   await runOpenApiGenerator();
   await finalizePackageJson();
   await ensureBuildArtifacts();
-  console.log('✅ OpenAPI TypeScript client generated at src/generated/openapi-client');
+  console.log(
+    '✅ OpenAPI TypeScript client generated at /Users/touma/Desktop/office-manager/api-client',
+  );
 }
 
 async function ensureDockerMode() {
@@ -54,15 +53,10 @@ function resolvePathForCli(relativePath) {
   return path.join(projectRoot, relativePath);
 }
 
-async function cleanupOutput() {
-  await fs.rm(outputDir, { recursive: true, force: true });
-}
-
 async function runOpenApiGenerator() {
   const specPathForCli = resolvePathForCli(relativeSpecPath);
   const outputPathForCli = resolvePathForCli(relativeOutputPath);
 
-  // 💡 npx 経由で正しく本物パッケージとコマンドが渡るように引数を修正
   const args = [
     '--package=@openapitools/openapi-generator-cli',
     'openapi-generator-cli',
