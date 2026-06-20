@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "openapi:generate": "node ./scripts/openapi/generate.mjs",
+    "openapi:generate": "node ./openapi/generate.mjs",
     "prisma:generate": "prisma generate",
     "build": "prisma generate && next build",
     "dev": "next dev",

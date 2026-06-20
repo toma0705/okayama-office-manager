@@ -7,7 +7,8 @@ import fs from 'node:fs/promises';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const projectRoot = path.resolve(__dirname, '..', '..');
+// 💡 基準を「web」フォルダに修正
+const projectRoot = path.resolve(__dirname, '..');
 const relativeSpecPath = path.join('openapi', 'openapi.yaml');
 const relativeOutputPath = path.join('src', 'generated', 'openapi-client');
 const outputDir = path.join(projectRoot, relativeOutputPath);
@@ -50,7 +51,6 @@ function resolvePathForCli(relativePath) {
   if (isDockerEnabled()) {
     return path.posix.join('/local', relativePath.replace(/\\/g, '/'));
   }
-
   return path.join(projectRoot, relativePath);
 }
 
@@ -61,7 +61,10 @@ async function cleanupOutput() {
 async function runOpenApiGenerator() {
   const specPathForCli = resolvePathForCli(relativeSpecPath);
   const outputPathForCli = resolvePathForCli(relativeOutputPath);
+
+  // 💡 npx 経由で正しく本物パッケージとコマンドが渡るように引数を修正
   const args = [
+    '--package=@openapitools/openapi-generator-cli',
     'openapi-generator-cli',
     'generate',
     '-g',
@@ -72,7 +75,7 @@ async function runOpenApiGenerator() {
     outputPathForCli,
     '--additional-properties',
     additionalProps,
-    '--skip-validate-spec', // 必要なら削除
+    '--skip-validate-spec',
   ];
 
   await exec(generatorCli, args, {

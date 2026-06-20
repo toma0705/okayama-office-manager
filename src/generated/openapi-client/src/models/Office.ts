@@ -37,6 +37,24 @@ export interface Office {
      * @memberof Office
      */
     name: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof Office
+     */
+    latitude?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof Office
+     */
+    longitude?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof Office
+     */
+    radiusMeters?: number;
 }
 
 /**
@@ -62,6 +80,9 @@ export function OfficeFromJSONTyped(json: any, ignoreDiscriminator: boolean): Of
         'id': json['id'],
         'code': json['code'],
         'name': json['name'],
+        'latitude': json['latitude'] == null ? undefined : json['latitude'],
+        'longitude': json['longitude'] == null ? undefined : json['longitude'],
+        'radiusMeters': json['radiusMeters'] == null ? undefined : json['radiusMeters'],
     };
 }
 
@@ -74,6 +95,9 @@ export function OfficeToJSON(value?: Office | null): any {
         'id': value['id'],
         'code': value['code'],
         'name': value['name'],
+        'latitude': value['latitude'],
+        'longitude': value['longitude'],
+        'radiusMeters': value['radiusMeters'],
     };
 }
 
