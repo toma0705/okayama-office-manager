@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Office Manager API
-  version: 0.1.0
+  version: 7.7.2
   description: |
     Web とモバイルクライアントから共通で利用する Office Manager バックエンド API の OpenAPI 仕様です。
     仕様は開発中であり、今後変更される可能性があります。
@@ -390,6 +390,9 @@ components:
         - id
         - code
         - name
+        - latitude
+        - longitude
+        - radiusMeters
       properties:
         id:
           type: integer
@@ -401,15 +404,12 @@ components:
         latitude:
           type: number
           format: double
-          nullable: false
         longitude:
           type: number
           format: double
-          nullable: false
         radiusMeters:
           type: integer
           format: int32
-          nullable: false
     UserListItem:
       type: object
       required:
