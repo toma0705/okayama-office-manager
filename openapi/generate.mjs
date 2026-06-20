@@ -6,10 +6,13 @@ import fs from 'node:fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
-const relativeSpecPath = path.join('openapi', 'openapi.yaml');
-const outputDir = '/Users/touma/Desktop/office-manager/api-client';
-const relativeOutputPath = path.relative(projectRoot, outputDir);
+
+// ⭐ 基準ディレクトリを「office-manager」のルートに設定
+const workspaceRoot = path.resolve(__dirname, '../..');
+
+// 絶対パスをそのまま使う（CLIラッパーが裏で良しなに処理してくれます！）
+const absoluteSpecPath = path.join(workspaceRoot, 'web', 'openapi', 'openapi.yaml');
+const absoluteOutputPath = path.join(workspaceRoot, 'api-client');
 
 const generatorCli = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const additionalProps = [
@@ -22,41 +25,13 @@ const additionalProps = [
 ].join(',');
 
 async function main() {
-  await ensureDockerMode();
   await runOpenApiGenerator();
   await finalizePackageJson();
   await ensureBuildArtifacts();
-  console.log(
-    '✅ OpenAPI TypeScript client generated at /Users/touma/Desktop/office-manager/api-client',
-  );
-}
-
-async function ensureDockerMode() {
-  const flag = process.env.OPENAPI_GENERATOR_USE_DOCKER;
-  if (!flag || flag === 'false' || flag === '0') {
-    process.env.OPENAPI_GENERATOR_USE_DOCKER = 'true';
-  }
-}
-
-function isDockerEnabled() {
-  return (
-    process.env.OPENAPI_GENERATOR_USE_DOCKER &&
-    process.env.OPENAPI_GENERATOR_USE_DOCKER !== 'false' &&
-    process.env.OPENAPI_GENERATOR_USE_DOCKER !== '0'
-  );
-}
-
-function resolvePathForCli(relativePath) {
-  if (isDockerEnabled()) {
-    return path.posix.join('/local', relativePath.replace(/\\/g, '/'));
-  }
-  return path.join(projectRoot, relativePath);
+  console.log('✅ OpenAPI TypeScript client generated at ' + absoluteOutputPath);
 }
 
 async function runOpenApiGenerator() {
-  const specPathForCli = resolvePathForCli(relativeSpecPath);
-  const outputPathForCli = resolvePathForCli(relativeOutputPath);
-
   const args = [
     '--package=@openapitools/openapi-generator-cli',
     'openapi-generator-cli',
@@ -64,22 +39,22 @@ async function runOpenApiGenerator() {
     '-g',
     'typescript-fetch',
     '-i',
-    specPathForCli,
+    absoluteSpecPath, // 変な書き換えをせず、そのまま渡す
     '-o',
-    outputPathForCli,
+    absoluteOutputPath, // ここもそのまま渡す
     '--additional-properties',
     additionalProps,
     '--skip-validate-spec',
   ];
 
   await exec(generatorCli, args, {
-    cwd: projectRoot,
+    cwd: workspaceRoot, // 実行ディレクトリをプロジェクトルートに固定
     env: { ...process.env, OPENAPI_GENERATOR_SKIP_INSTALL_CHECK: 'true' },
   });
 }
 
 async function finalizePackageJson() {
-  const pkgPath = path.join(outputDir, 'package.json');
+  const pkgPath = path.join(absoluteOutputPath, 'package.json');
   const defaultPkg = {
     name: '@office-manager/api-client',
     version: '0.1.0',
@@ -118,7 +93,7 @@ async function finalizePackageJson() {
 }
 
 async function ensureBuildArtifacts() {
-  const npmIgnorePath = path.join(outputDir, '.npmignore');
+  const npmIgnorePath = path.join(absoluteOutputPath, '.npmignore');
   try {
     await fs.access(npmIgnorePath);
   } catch {
