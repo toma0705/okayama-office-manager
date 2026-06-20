@@ -401,15 +401,15 @@ components:
         latitude:
           type: number
           format: double
-          nullable: true
+          nullable: false
         longitude:
           type: number
           format: double
-          nullable: true
+          nullable: false
         radiusMeters:
           type: integer
           format: int32
-          nullable: true
+          nullable: false
     UserListItem:
       type: object
       required:

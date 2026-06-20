@@ -2,15 +2,11 @@
   "compilerOptions": {
     "declaration": true,
     "target": "es6",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "outDir": "dist",
-    "typeRoots": [
-      "node_modules/@types"
-    ]
+    "module": "node16",
+    "moduleResolution": "node16",
+    "outDir": "dist/esm",
+    "rootDir": "./src",
+    "typeRoots": ["node_modules/@types"]
   },
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "exclude": ["dist", "node_modules"]
 }
