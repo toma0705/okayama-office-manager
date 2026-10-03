@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getDefaultWebhookUrl, resolveWebhookUrl, updateAttendanceBoard } from '@/lib/discord';
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization');
@@ -16,6 +17,15 @@ export async function GET(req: NextRequest) {
       exitedAt: new Date().toISOString(),
     },
   });
+
+  // 全員退室になったので、各オフィスの在室ボードも更新する
+  const defaultWebhook = getDefaultWebhookUrl();
+  if (defaultWebhook && result.count > 0) {
+    const offices = await prisma.office.findMany({ select: { code: true } });
+    for (const office of offices) {
+      await updateAttendanceBoard(office.code, resolveWebhookUrl(office.code, defaultWebhook));
+    }
+  }
 
   return NextResponse.json({
     success: true,

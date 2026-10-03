@@ -1,5 +1,12 @@
 import { NextRequest } from 'next/server';
 
+jest.mock('@/lib/prisma', () => ({ prisma: {} }));
+const mockUpdateBoard = jest.fn();
+jest.mock('@/lib/discord', () => ({
+  ...jest.requireActual('@/lib/discord'),
+  updateAttendanceBoard: (...args: unknown[]) => mockUpdateBoard(...args),
+}));
+
 describe('POST /api/notify', () => {
   const originalEnv = process.env;
   const originalFetch = global.fetch;
@@ -10,6 +17,7 @@ describe('POST /api/notify', () => {
 
   beforeEach(async () => {
     jest.resetModules();
+    mockUpdateBoard.mockReset();
     process.env = { ...originalEnv };
     process.env.DISCORD_WEBHOOK_URL_OKAYAMA = okayamaWebhook;
     process.env.DISCORD_WEBHOOK_URL_TOKYO = tokyoWebhook;
@@ -96,5 +104,19 @@ describe('POST /api/notify', () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toContain('DISCORD_WEBHOOK_URL_DEFAULT');
+  });
+
+  it('入退室通知では在室ボードを更新する', async () => {
+    await notifyPost(buildRequest({ user: 'A', status: '入室', officeCode: 'TOKYO' }));
+
+    expect(mockUpdateBoard).toHaveBeenCalledWith('TOKYO', tokyoWebhook);
+  });
+
+  it('メモ追加では在室ボードを更新しない', async () => {
+    await notifyPost(
+      buildRequest({ user: 'A', status: 'メモを追加', officeCode: 'TOKYO', note: 'hello' }),
+    );
+
+    expect(mockUpdateBoard).not.toHaveBeenCalled();
   });
 });
