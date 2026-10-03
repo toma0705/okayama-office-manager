@@ -1,22 +1,12 @@
 /**
  * 通知配信 API
- * POST: 入退室イベントを Discord Webhook に転送する
+ * POST: 入退室イベントを Discord Webhook に転送し、在室ボードを更新する
  */
 import { NextRequest, NextResponse } from 'next/server';
-
-const resolveWebhookUrl = (officeCode: string | null | undefined, fallback: string) => {
-  if (!officeCode) return fallback;
-
-  const normalized = officeCode.trim().toUpperCase();
-  if (!normalized) return fallback;
-
-  const envKey = `DISCORD_WEBHOOK_URL_${normalized}`;
-  return process.env[envKey] ?? fallback;
-};
+import { getDefaultWebhookUrl, resolveWebhookUrl, updateAttendanceBoard } from '@/lib/discord';
 
 export async function POST(req: NextRequest) {
-  const defaultWebhook =
-    process.env.DISCORD_WEBHOOK_URL_DEFAULT ?? process.env.DISCORD_WEBHOOK_URL_OKAYAMA ?? null;
+  const defaultWebhook = getDefaultWebhookUrl();
 
   if (!defaultWebhook) {
     return NextResponse.json(
@@ -40,6 +30,11 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
   });
+
+  // 入退室のときだけ在室ボードも更新する（メモ追加では更新しない）
+  if (officeCode && (status === '入室' || status === '退室')) {
+    await updateAttendanceBoard(officeCode, targetWebhook);
+  }
 
   return NextResponse.json({ ok: true });
 }
