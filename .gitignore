@@ -64,6 +64,4 @@ prisma/*.db-journal
 public/uploads/*
 !public/uploads/.gitkeep
 
-# Prisma migration files
-prisma/migrations/*/migration.sql
 *.zip
