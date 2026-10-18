@@ -8,8 +8,9 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { resolveUserIconUrl } from '@/lib/storage';
 
-// JWTトークンの有効期限（7日間）
-const JWT_EXPIRES_IN = '7d';
+// JWTトークンの有効期限（180日間）
+// アプリはほとんど開かれず、バックグラウンドの自動入退室もこのトークンを使うため長めにしている
+const JWT_EXPIRES_IN = '180d';
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // JWTトークン生成（7日間有効）
+  // JWTトークン生成（180日間有効）
   const token = jwt.sign(
     {
       id: user.id,
