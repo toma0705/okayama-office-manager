@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedUserId } from '@/lib/auth';
+import { getAttendanceUserId } from '@/lib/auth';
 
 export async function POST(req: NextRequest, context: any) {
   const { params } = context;
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, context: any) {
   }
 
   try {
-    const authenticatedUserId = getAuthenticatedUserId(req);
+    const authenticatedUserId = getAttendanceUserId(req);
 
     if (!authenticatedUserId) {
       return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });

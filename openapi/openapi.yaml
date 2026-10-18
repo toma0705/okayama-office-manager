@@ -202,6 +202,76 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /users/attendance-token:
+    post:
+      tags: [Users]
+      summary: 自動入退室専用トークンの発行
+      description: ログイン用トークンで呼び出し、バックグラウンドの自動入退室に使う長期トークン（1年間有効）を受け取ります。専用トークンは入室・退室・在室状態の確認にしか使えません。
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - expiresIn
+                properties:
+                  token:
+                    type: string
+                  expiresIn:
+                    type: string
+                    example: 365d
+        '401':
+          description: 認証エラー（未ログイン、または自動入退室専用トークンで呼び出した場合）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ユーザーが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/attendance-status:
+    get:
+      tags: [Users]
+      summary: 在室状態の取得
+      description: 自分の在室状態を返します。ログイン用・自動入退室専用のどちらのトークンでも呼び出せます。
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - entered
+                properties:
+                  entered:
+                    type: boolean
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ユーザーが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /users/me:
     get:
       tags: [Users]

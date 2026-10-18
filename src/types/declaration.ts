@@ -24,6 +24,16 @@ export type JwtPayload = {
 };
 
 /**
+ * 自動入退室専用トークンの中身。入室・退室・在室状態の確認にしか使えない
+ */
+export type AttendanceJwtPayload = {
+  id: number;
+  scope: 'attendance';
+  iat?: number;
+  exp?: number;
+};
+
+/**
  * ユーザーエンティティの型
  */
 export type User = {
