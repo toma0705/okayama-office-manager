@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { resolveUserIconUrl } from '@/lib/storage';
+import { omitUserSecrets } from '@/lib/user';
 
 // JWTトークンの有効期限（180日間）
 // アプリはほとんど開かれず、バックグラウンドの自動入退室もこのトークンを使うため長めにしている
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     { expiresIn: JWT_EXPIRES_IN },
   );
 
-  const { password: _pw, ...userSafe } = user;
+  const userSafe = omitUserSecrets(user);
   return NextResponse.json({
     user: {
       ...userSafe,

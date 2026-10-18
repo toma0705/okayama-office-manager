@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUserId } from '@/lib/auth';
 import { resolveUserIconUrl } from '@/lib/storage';
+import { omitUserSecrets } from '@/lib/user';
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       user: {
-        ...user,
+        ...omitUserSecrets(user),
         iconFileName: resolveUserIconUrl(user.iconFileName) ?? user.iconFileName,
       },
       enteredUsers: enteredUsers.map(enteredUser => ({
