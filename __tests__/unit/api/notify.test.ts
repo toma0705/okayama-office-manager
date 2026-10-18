@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server';
 
-jest.mock('@/lib/prisma', () => ({ prisma: {} }));
+const mockFindUnique = jest.fn();
+jest.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: (...args: unknown[]) => mockFindUnique(...args) } } }));
+const mockGetAuthenticatedUserId = jest.fn();
+jest.mock('@/lib/auth', () => ({
+  getAuthenticatedUserId: (...args: unknown[]) => mockGetAuthenticatedUserId(...args),
+}));
 const mockUpdateBoard = jest.fn();
 jest.mock('@/lib/discord', () => ({
   ...jest.requireActual('@/lib/discord'),
@@ -18,6 +23,9 @@ describe('POST /api/notify', () => {
   beforeEach(async () => {
     jest.resetModules();
     mockUpdateBoard.mockReset();
+    mockFindUnique.mockReset();
+    mockGetAuthenticatedUserId.mockReset();
+    mockGetAuthenticatedUserId.mockReturnValue(1);
     process.env = { ...originalEnv };
     process.env.DISCORD_WEBHOOK_URL_OKAYAMA = okayamaWebhook;
     process.env.DISCORD_WEBHOOK_URL_TOKYO = tokyoWebhook;
@@ -33,6 +41,10 @@ describe('POST /api/notify', () => {
     process.env = originalEnv;
   });
 
+  // 名前とオフィスは送信内容ではなく、トークンのユーザー(DB)から決まる
+  const sender = (name: string, officeCode: string) =>
+    mockFindUnique.mockResolvedValue({ name, office: { code: officeCode } });
+
   const buildRequest = (body: Record<string, unknown>) =>
     new NextRequest('http://localhost/api/notify', {
       method: 'POST',
@@ -41,7 +53,8 @@ describe('POST /api/notify', () => {
     });
 
   it('Tokyoオフィスの通知は東京用Webhookに送信する', async () => {
-    const req = buildRequest({ user: '東京ユーザー', status: '入室', officeCode: 'TOKYO' });
+    sender('東京ユーザー', 'TOKYO');
+    const req = buildRequest({ status: '入室' });
 
     const res = await notifyPost(req);
 
@@ -54,7 +67,8 @@ describe('POST /api/notify', () => {
   });
 
   it('未定義オフィスはデフォルトWebhookに送信する', async () => {
-    const req = buildRequest({ user: '福岡ユーザー', status: '退室', officeCode: 'Fukuoka' });
+    sender('福岡ユーザー', 'Fukuoka');
+    const req = buildRequest({ status: '退室' });
 
     const res = await notifyPost(req);
 
@@ -71,12 +85,8 @@ describe('POST /api/notify', () => {
     jest.resetModules();
     ({ POST: notifyPost } = await import('@/app/api/notify/route'));
 
-    const req = buildRequest({
-      user: '大阪ユーザー',
-      status: '入室',
-      officeCode: 'osaka',
-      note: '大阪拠点で商談中',
-    });
+    sender('大阪ユーザー', 'osaka');
+    const req = buildRequest({ status: '入室', note: '大阪拠点で商談中' });
 
     const res = await notifyPost(req);
 
@@ -97,7 +107,8 @@ describe('POST /api/notify', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch;
     ({ POST: notifyPost } = await import('@/app/api/notify/route'));
 
-    const req = buildRequest({ user: '誰か', status: '入室', officeCode: 'TOKYO' });
+    sender('誰か', 'TOKYO');
+    const req = buildRequest({ status: '入室' });
 
     const res = await notifyPost(req);
 
@@ -107,16 +118,39 @@ describe('POST /api/notify', () => {
   });
 
   it('入退室通知では在室ボードを更新する', async () => {
-    await notifyPost(buildRequest({ user: 'A', status: '入室', officeCode: 'TOKYO' }));
+    sender('A', 'TOKYO');
+    await notifyPost(buildRequest({ status: '入室' }));
 
     expect(mockUpdateBoard).toHaveBeenCalledWith('TOKYO', tokyoWebhook);
   });
 
   it('メモ追加では在室ボードを更新しない', async () => {
-    await notifyPost(
-      buildRequest({ user: 'A', status: 'メモを追加', officeCode: 'TOKYO', note: 'hello' }),
-    );
+    sender('A', 'TOKYO');
+    await notifyPost(buildRequest({ status: 'メモを追加', note: 'hello' }));
 
     expect(mockUpdateBoard).not.toHaveBeenCalled();
+  });
+
+  it('401: 未ログインでは通知しない', async () => {
+    mockGetAuthenticatedUserId.mockReturnValue(null);
+    const res = await notifyPost(buildRequest({ status: '入室' }));
+    expect(res.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('送信内容のユーザー名・オフィスは使わない（なりすまし防止）', async () => {
+    sender('本人', 'TOKYO');
+    await notifyPost(buildRequest({ user: '他人', officeCode: 'OKAYAMA', status: '入室' }));
+
+    expect(global.fetch).toHaveBeenCalledWith(tokyoWebhook, expect.any(Object));
+    const [, options] = (global.fetch as jest.Mock).mock.calls.at(-1) ?? [];
+    expect(JSON.parse(options.body as string).content).toBe('本人 さんが 入室 しました！');
+  });
+
+  it('400: 不正なステータス', async () => {
+    sender('A', 'TOKYO');
+    const res = await notifyPost(buildRequest({ status: '@everyone' }));
+    expect(res.status).toBe(400);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

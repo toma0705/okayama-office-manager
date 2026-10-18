@@ -107,9 +107,24 @@ paths:
     get:
       tags: [Users]
       summary: ユーザー詳細の取得
+      description: 本人のログイン用トークンでのみ操作できます。
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UserIdPathParam'
       responses:
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 本人以外のユーザーは操作できない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 成功
           content:
@@ -121,9 +136,24 @@ paths:
     delete:
       tags: [Users]
       summary: ユーザー削除
+      description: 本人のログイン用トークンでのみ操作できます。
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UserIdPathParam'
       responses:
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 本人以外のユーザーは操作できない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 削除成功
           content:
@@ -135,6 +165,9 @@ paths:
     patch:
       tags: [Users]
       summary: ユーザーノートの更新
+      description: 本人のログイン用トークンでのみ操作できます。
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UserIdPathParam'
       requestBody:
@@ -150,6 +183,18 @@ paths:
                   type: string
                   nullable: true
       responses:
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 本人以外のユーザーは操作できない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 更新成功
           content:
@@ -298,7 +343,9 @@ paths:
     post:
       tags: [Notifications]
       summary: Discord 通知送信
-      description: 入退室イベントを Discord Webhook に投稿します。
+      description: 入退室イベントを Discord Webhook に投稿します。名前とオフィスは送信内容ではなく、トークンのユーザーから決まります。
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -306,22 +353,27 @@ paths:
             schema:
               type: object
               required:
-                - user
                 - status
               properties:
-                user:
-                  type: string
-                  description: 対象ユーザー名
                 status:
                   type: string
-                  description: '「入室」または「退室」などのステータス文字列'
-                officeCode:
-                  type: string
-                  nullable: true
+                  enum: ['入室', '退室', 'メモを追加']
                 note:
                   type: string
                   nullable: true
       responses:
+        '400':
+          description: 不正なステータス
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 通知送信に成功
           content:

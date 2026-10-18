@@ -1,11 +1,26 @@
 /**
  * 通知配信 API
  * POST: 入退室イベントを Discord Webhook に転送し、在室ボードを更新する
+ * ログイン用トークンが必要。名前とオフィスは送信内容ではなくトークンのユーザーから決める（なりすまし防止）
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUserId } from '@/lib/auth';
 import { getDefaultWebhookUrl, resolveWebhookUrl, updateAttendanceBoard } from '@/lib/discord';
 
+const NOTIFY_STATUSES = ['入室', '退室', 'メモを追加'];
+
 export async function POST(req: NextRequest) {
+  let userId: number | null = null;
+  try {
+    userId = getAuthenticatedUserId(req);
+  } catch {
+    userId = null;
+  }
+  if (!userId) {
+    return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
+  }
+
   const defaultWebhook = getDefaultWebhookUrl();
 
   if (!defaultWebhook) {
@@ -18,7 +33,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { user, status, officeCode, note } = await req.json();
+  const { status, note } = await req.json();
+  if (!NOTIFY_STATUSES.includes(status)) {
+    return NextResponse.json({ error: '不正なステータスです' }, { status: 400 });
+  }
+
+  const sender = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, office: { select: { code: true } } },
+  });
+  if (!sender) {
+    return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
+  }
+  const user = sender.name;
+  const officeCode = sender.office.code;
 
   const targetWebhook = resolveWebhookUrl(officeCode, defaultWebhook);
   const trimmedNote = typeof note === 'string' ? note.trim() : '';

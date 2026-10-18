@@ -73,7 +73,7 @@ const Home = () => {
 
       await fetch('/api/notify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           user: user.name,
           status: '入室',
@@ -110,7 +110,7 @@ const Home = () => {
 
       await fetch('/api/notify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           user: user.name,
           status: '退室',
@@ -178,7 +178,10 @@ const Home = () => {
             if (!user) return;
             if (!window.confirm('本当にアカウントを削除しますか？この操作は元に戻せません。'))
               return;
-            await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+            await fetch(`/api/users/${user.id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
             localStorage.removeItem('token');
             await fetchUserAndEnteredUsers();
             router.push('/login');
@@ -206,9 +209,10 @@ const Home = () => {
         me={user}
         users={enteredUsers}
         onSaveNote={async (userId, note) => {
+          const token = localStorage.getItem('token');
           const response = await fetch(`/api/users/${userId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ note }),
           });
 
@@ -225,7 +229,7 @@ const Home = () => {
             if (trimmedNote && trimmedNote !== prevNote.trim()) {
               await fetch('/api/notify', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
                   user: user.name,
                   status: 'メモを追加',
