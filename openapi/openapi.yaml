@@ -398,9 +398,6 @@ components:
         - id
         - code
         - name
-        - latitude
-        - longitude
-        - radiusMeters
       properties:
         id:
           type: integer
@@ -409,15 +406,6 @@ components:
           type: string
         name:
           type: string
-        latitude:
-          type: number
-          format: double
-        longitude:
-          type: number
-          format: double
-        radiusMeters:
-          type: integer
-          format: int32
     UserListItem:
       type: object
       required:
