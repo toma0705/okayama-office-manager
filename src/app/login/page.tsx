@@ -172,9 +172,6 @@ export default function LoginPage() {
         </Button>
       </form>
       <div className='mt-4 flex w-full max-w-sm flex-col gap-2'>
-        <LinkButton href='/users' center>
-          ユーザーリストを見る
-        </LinkButton>
         <LinkButton href='/reset-password' center>
           パスワードをお忘れの方はこちら
         </LinkButton>

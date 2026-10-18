@@ -1,6 +1,6 @@
 /**
  * ユーザー管理API
- * GET: ユーザーリストの取得（登録ページ用）
+ * GET: ユーザーリストの取得（ログイン中のユーザーのみ）
  * POST: 新規ユーザー登録とプロフィール画像のアップロード
  */
 export const runtime = 'nodejs';
@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { MAX_ICON_SIZE_BYTES, resolveUserIconUrl, uploadUserIcon } from '@/lib/storage';
 import { compressImageToLimit } from '@/utils/image';
+import { getAuthenticatedUserId } from '@/lib/auth';
 
 const withResolvedIcon = <T extends { iconFileName?: string | null }>(user: T): T => {
   if (typeof user.iconFileName !== 'string') {
@@ -24,9 +25,19 @@ const withResolvedIcon = <T extends { iconFileName?: string | null }>(user: T): 
 
 /**
  * ユーザーリスト取得API
- * 登録ページで表示するための基本情報のみ取得
+ * ログイン中のユーザーにのみ、一覧表示用の基本情報を返す
  */
 export async function GET(req: NextRequest) {
+  let userId: number | null = null;
+  try {
+    userId = getAuthenticatedUserId(req);
+  } catch {
+    userId = null;
+  }
+  if (!userId) {
+    return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
+  }
+
   const officeCode = req.nextUrl.searchParams.get('officeCode')?.toUpperCase();
   try {
     const users = await prisma.user.findMany({
