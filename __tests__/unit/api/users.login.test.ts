@@ -25,6 +25,14 @@ const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const bcrypt = jest.requireMock('bcryptjs') as any;
 
 describe('POST /api/users/login', () => {
+  const OLD_SECRET = process.env.JWT_SECRET;
+  beforeAll(() => {
+    process.env.JWT_SECRET = 'test-secret';
+  });
+  afterAll(() => {
+    process.env.JWT_SECRET = OLD_SECRET;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

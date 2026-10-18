@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getJwtSecret } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { resolveUserIconUrl } from '@/lib/storage';
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       officeId: user.officeId,
       officeCode: user.office.code,
     },
-    process.env.JWT_SECRET || 'secret',
+    getJwtSecret(),
     { expiresIn: JWT_EXPIRES_IN },
   );
 
