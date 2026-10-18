@@ -3,7 +3,7 @@
  * - URL: /users
  * - 概要: 登録されているユーザーの一覧を表示
  * - API: GET /api/users
- * - Auth: 公開
+ * - Auth: 必須（未ログインなら /login へ）
  */
 
 'use client';
@@ -28,12 +28,24 @@ export default function UsersPage() {
   }, [users, selectedOffice]);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
     (async () => {
       try {
         const [usersRes, officesRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/users`),
+          fetch(`${API_BASE_URL}/users`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
           fetch(`${API_BASE_URL}/offices`),
         ]);
+        if (usersRes.status === 401) {
+          localStorage.removeItem('token');
+          router.push('/login');
+          return;
+        }
         const usersData = await usersRes.json();
         const officesData = await officesRes.json();
         setUsers(Array.isArray(usersData) ? usersData : []);
@@ -42,7 +54,7 @@ export default function UsersPage() {
         console.error('ユーザーリストの取得に失敗しました', error);
       }
     })();
-  }, []);
+  }, [router]);
 
   return (
     <PageContainer className='items-start gap-6'>

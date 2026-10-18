@@ -28,7 +28,9 @@ paths:
     get:
       tags: [Users]
       summary: ユーザー一覧の取得
-      description: 登録フォームなどで利用するためのユーザー一覧を返します。`officeCode` を指定した場合は該当オフィスのユーザーのみに絞り込みます。
+      description: ログイン中のユーザーに一覧を返します。`officeCode` を指定した場合は該当オフィスのユーザーのみに絞り込みます。
+      security:
+        - bearerAuth: []
       parameters:
         - name: officeCode
           in: query
@@ -44,6 +46,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UserListItem'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/UnexpectedError'
     post:
@@ -390,9 +398,6 @@ components:
         - id
         - code
         - name
-        - latitude
-        - longitude
-        - radiusMeters
       properties:
         id:
           type: integer
@@ -401,15 +406,6 @@ components:
           type: string
         name:
           type: string
-        latitude:
-          type: number
-          format: double
-        longitude:
-          type: number
-          format: double
-        radiusMeters:
-          type: integer
-          format: int32
     UserListItem:
       type: object
       required:

@@ -30,9 +30,6 @@ model Office {
   id           Int      @id @default(autoincrement())
   code         String   @unique
   name         String
-  latitude     Float
-  longitude    Float
-  radiusMeters Int
   // Discord の在室ボード（Webhook メッセージ）の ID。入退室のたびにこのメッセージを編集する
   discordBoardMessageId String?
   createdAt    DateTime @default(now())

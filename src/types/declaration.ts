@@ -11,9 +11,6 @@ export type Office = {
   id: number;
   code: OfficeCode;
   name: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  radiusMeters?: number | null;
 };
 
 export type JwtPayload = {

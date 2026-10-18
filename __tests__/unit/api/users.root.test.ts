@@ -14,6 +14,8 @@ jest.mock('@/lib/prisma', () => ({
   },
 }));
 
+jest.mock('@/lib/auth', () => ({ getAuthenticatedUserId: jest.fn() }));
+
 // bcrypt モック
 jest.mock('bcryptjs', () => ({ hash: jest.fn(async () => 'hashed_pw') }));
 
@@ -30,6 +32,7 @@ jest.mock('@/lib/storage', () => ({
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const storage = jest.requireMock('@/lib/storage');
+const auth = jest.requireMock('@/lib/auth') as any;
 
 describe('GET/POST /api/users (root)', () => {
   const origEnv = (process.env as any).NODE_ENV;
@@ -67,7 +70,23 @@ describe('GET/POST /api/users (root)', () => {
     (process.env as any).NODE_ENV = origEnv;
   });
 
+  it('GET: 401 未ログイン', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(null);
+    const res = await usersGet({ nextUrl: { searchParams: new URLSearchParams() } } as any);
+    expect(res.status).toBe(401);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it('GET: 401 トークン検証失敗', async () => {
+    auth.getAuthenticatedUserId.mockImplementation(() => {
+      throw new Error('invalid');
+    });
+    const res = await usersGet({ nextUrl: { searchParams: new URLSearchParams() } } as any);
+    expect(res.status).toBe(401);
+  });
+
   it('GET: 200 ユーザーリスト取得', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(1);
     const list = [
       {
         id: 1,

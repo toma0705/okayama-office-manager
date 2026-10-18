@@ -65,9 +65,6 @@ describe('GET /api/users/me', () => {
         id: 1,
         code: 'OKAYAMA',
         name: '岡山オフィス',
-        latitude: 34.697131,
-        longitude: 133.927744,
-        radiusMeters: 10,
       },
     });
     prisma.user.findMany.mockResolvedValue([
@@ -81,9 +78,6 @@ describe('GET /api/users/me', () => {
           id: 1,
           code: 'OKAYAMA',
           name: '岡山オフィス',
-          latitude: 34.697131,
-          longitude: 133.927744,
-          radiusMeters: 10,
         },
       },
     ]);
