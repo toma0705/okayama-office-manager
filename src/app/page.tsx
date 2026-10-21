@@ -171,7 +171,6 @@ const Home = () => {
           onClose={() => setSidebarOpen(false)}
           onLogout={() => {
             localStorage.removeItem('token');
-            onExit();
             router.push('/login');
           }}
           onDelete={async () => {
