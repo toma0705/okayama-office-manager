@@ -9,6 +9,7 @@ jest.mock('@/lib/prisma', () => {
   return {
     prisma: {
       user: {
+        findUnique: jest.fn().mockResolvedValue({ id: 1, entered: false, exitPendingSince: null }),
         update: jest.fn().mockResolvedValue({ id: 1, entered: true }),
       },
     },
@@ -47,5 +48,28 @@ describe('POST /api/users/[id]/enter', () => {
 
     const res = await enter(req, context);
     expect(res.status).toBe(403);
+  });
+
+  it('退室の保留中なら保留を取り消すだけで、入室の時刻は変えない', async () => {
+    const prisma = jest.requireMock('@/lib/prisma').prisma as any;
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 1,
+      entered: true,
+      exitPendingSince: new Date('2026-10-28T09:00:00Z'),
+    });
+    prisma.user.update.mockClear();
+
+    const req = new NextRequest('http://localhost/api/users/1/enter', { method: 'POST' });
+    const context: any = { params: Promise.resolve({ id: '1' }) };
+
+    const res = await enter(req, context);
+    const json: any = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.resumed).toBe(true);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { exitPendingSince: null },
+    });
   });
 });

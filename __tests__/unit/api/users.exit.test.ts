@@ -41,6 +41,7 @@ describe('POST /api/users/[id]/exit', () => {
         entered: false,
         note: null,
         exitedAt: expect.any(Date),
+        exitPendingSince: null,
       }),
     });
   });
