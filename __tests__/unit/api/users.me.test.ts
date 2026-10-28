@@ -14,12 +14,17 @@ jest.mock('@/lib/auth', () => ({
   getAuthenticatedUserId: jest.fn(),
 }));
 
+jest.mock('@/lib/attendance', () => ({
+  finalizePendingExits: jest.fn().mockResolvedValue(0),
+}));
+
 jest.mock('@/lib/storage', () => ({
   resolveUserIconUrl: jest.fn((value: string) => `https://example.r2.dev/${value}`),
 }));
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const auth = jest.requireMock('@/lib/auth') as any;
+const attendance = jest.requireMock('@/lib/attendance') as any;
 
 describe('GET /api/users/me', () => {
   beforeEach(() => {
@@ -91,5 +96,28 @@ describe('GET /api/users/me', () => {
     expect(json.user.iconFileName).toBe('https://example.r2.dev/me.png');
     expect(Array.isArray(json.enteredUsers)).toBeTruthy();
     expect(json.enteredUsers[0].iconFileName).toBe('https://example.r2.dev/entered.png');
+  });
+
+  it('猶予を過ぎた退室の保留を確定してから返し、確定に失敗しても在室状況は返す', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(1);
+    attendance.finalizePendingExits.mockRejectedValueOnce(new Error('db down'));
+    prisma.user.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'A',
+      iconFileName: 'me.png',
+      officeId: 1,
+      office: { id: 1, code: 'OKAYAMA', name: '岡山オフィス' },
+    });
+    prisma.user.findMany.mockResolvedValue([]);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const req = new NextRequest('http://localhost/api/users/me', {
+      headers: { Authorization: 'Bearer ok' } as any,
+    });
+    const res = await me(req);
+
+    expect(attendance.finalizePendingExits).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    warn.mockRestore();
   });
 });

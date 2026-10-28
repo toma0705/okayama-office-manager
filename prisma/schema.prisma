@@ -20,6 +20,8 @@ model User {
   entered           Boolean   @default(false)
   enteredAt         DateTime?
   exitedAt          DateTime?
+  /// ビーコンの圏外になった時刻。猶予（EXIT_GRACE_MINUTES）の間に戻らなければ退室を確定する
+  exitPendingSince  DateTime?
   officeId          Int
   office            Office    @relation(fields: [officeId], references: [id])
 

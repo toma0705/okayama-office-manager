@@ -1,6 +1,7 @@
 /**
  * ユーザー入室エンドポイント
  * ユーザーを入室状態にマークし、入室時刻を記録
+ * 退室の保留中に呼ばれた場合は保留を取り消す（resumed: true）
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -26,12 +27,23 @@ export async function POST(req: NextRequest, context: any) {
       return NextResponse.json({ error: '他ユーザーの入室は操作できません' }, { status: 403 });
     }
 
+    // 退室の保留中（猶予の間に戻ってきた）なら保留を取り消すだけにし、入室の時刻を保つ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.entered && user.exitPendingSince) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { exitPendingSince: null },
+      });
+      return NextResponse.json({ message: '入室中に戻りました', resumed: true }, { status: 200 });
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: {
         entered: true,
         enteredAt: new Date(),
         exitedAt: null,
+        exitPendingSince: null,
       },
     });
 
