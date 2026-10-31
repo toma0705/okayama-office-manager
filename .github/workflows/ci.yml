@@ -66,8 +66,10 @@ jobs:
         run: >-
           npx prisma migrate diff --from-url "$DATABASE_URL"
           --to-schema-datamodel prisma/schema.prisma --exit-code
-      - name: テスト（カバレッジ付き）
+      - name: 単体テスト（カバレッジ付き）
         run: npm run test:coverage -- --ci
+      - name: 結合テスト（本物の DB で入退室の流れを確かめる）
+        run: npm run test:integration -- --ci
       - name: カバレッジのレポートを保存
         if: always()
         uses: actions/upload-artifact@v4
