@@ -1,248 +1,170 @@
-# Office Manager Web
+# 入退室管理（Web・API）
 
-これは Office Manager プロジェクトの一部です。
+IT 学生団体 PlayGround のオフィスに「今だれがいるか」を、いつでもどこからでも確認できるアプリです。
+このリポジトリは **Web の画面と、アプリ（iOS・Android）が使う API** です。
 
-モバイルアプリのリポジトリはこちら：[office-manager-native](https://github.com/toma0705/office-manager-native)
+![アプリの画面](./screenshots/app-overview.png)
 
-Web/Native 双方から同じバックエンド API を利用するための OpenAPI リポジトリはこちら：[office-manager-api-client](https://github.com/toma0705/office-manager-api-client)
+> 引き継ぎの全体像は [docs/handover.md](docs/handover.md)、運用の手順は [docs/operations.md](docs/operations.md) を読んでください。
 
-## アプリケーション概要
+## 全体の構成
 
-エンジニアリングを行う学生団体(playgroud)のメンバーとして大学で発表しました。その時のスライドの一部です。
+リポジトリは 3 つあります。
 
-![Office Manager アプリケーション画面](./screenshots/app-overview.png)
+| リポジトリ                                                                         | 内容                                                                                                    |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **okayama-office-manager**（これ）                                                 | Web の画面と API（Next.js）。Vercel で公開                                                              |
+| [office-manager-native](https://github.com/toma0705/office-manager-native)         | iOS・Android アプリ（Expo / React Native）。ビーコンで自動入退室する                                    |
+| [office-manager-api-client](https://github.com/toma0705/office-manager-api-client) | アプリが API を呼ぶための TypeScript クライアント。このリポジトリの `openapi/openapi.yaml` から自動生成 |
 
-## サービス概要
+```
+ iOS・Android アプリ ──┐
+                        ├─→ API（このリポジトリ・Vercel）──→ DB（Prisma Postgres）
+ Web の画面 ───────────┘        │
+                                 ├─→ Discord（入退室の通知）
+ cron-job.org（毎分・毎日 4:00）─┘   └─→ Cloudflare R2（プロフィール画像）
+```
 
-このアプリは、エンジニアリングを行う学生団体（playground）の岡山オフィスを利用する際の課題を解決するために開発しました。
+## 入退室のしくみ
 
-### 解決した課題
+入退室の記録の仕方は 2 通りあります。
 
-**「実際にオフィスに行かないと誰がいるか分からない」**
+- **Web の入室・退室ボタン**: すぐに入室・退室になります（`/api/users/[id]/enter`・`/exit`）。
+- **アプリのビーコン検知**: すぐには入退室にせず、サーバーで「保留」にします（`/arrive`・`/leave`）。
+  - 入室: 前を通っただけの人を入室にしないよう、**1 分**のあいだ圏外にならなければ確定します。
+  - 退室: トイレや近くのコンビニに行っただけなら、**15 分**の猶予のあいだに戻れば取り消します。
 
-従来は、オフィスに誰がいるのかを知るためには実際に現地に行く必要がありました。これにより、無駄足になったり、一人で作業することになったりする問題がありました。
+保留は、cron-job.org が毎分呼ぶ `/api/cron/finalize-exits` と、画面を開いたときの `/api/users/me` で確定し、そのときの在室状況を添えて Discord に 1 通送ります。
+退室を取りこぼした人が残らないよう、毎日 4:00 に `/api/cron/nightly-checkout` で全員を退室にします（通知はしません）。
 
-### 提供する価値
+| 状態         | `entered` | `enterPendingSince` | `exitPendingSince` |
+| ------------ | --------- | ------------------- | ------------------ |
+| 退室中       | false     | null                | null               |
+| 入室の保留中 | false     | 圏内になった時刻    | null               |
+| 入室中       | true      | null                | null               |
+| 退室の保留中 | true      | null                | 圏外になった時刻   |
 
-**「いつ、どこからでもオフィスの在室状況を一目で把握」**
-
-- **今誰々がいるから行こう** - メンバーの在室状況を確認してからオフィスに向かえる
-- **誰もいないから今日はやめよう** - 無駄な移動時間を削減
-- **リアルタイムな状況把握** - 入退室状況をリアルタイムで共有
-
-**「オフィスの利用率向上」**
-
-- **アプリを開かなくても在室状況が分かる**: メンバーが入室・退室したタイミングで即座に Discord に通知されるため、わざわざアプリを確認しなくても「今誰がいるか」を把握できます。
-- **見逃し防止・集まりやすさ向上**: 「アプリを見ていなかったからメンバーがいることに気付かなかった」といった機会損失がなくなり、自然と集まりやすくなります。
-
-これにより、メンバー間のコミュニケーションが活発になり、効率的なオフィス利用が実現できました。
-
----
+コードは [src/lib/attendance.ts](src/lib/attendance.ts) にまとまっています。
 
 ## 技術スタック
 
-| 項目               | 技術・サービス                     | 詳細                             |
-| ------------------ | ---------------------------------- | -------------------------------- |
-| フレームワーク     | **Next.js 15.3.3**                 | React 19.0.0, TypeScript         |
-| データベース       | **PostgreSQL + Prisma Accelerate** | 本番・開発共通                   |
-| ORM                | **Prisma 6.10.1**                  | スキーマ管理・クエリ最適化       |
-| 認証               | **JWT**                            | プラットフォームに非依存         |
-| ファイルストレージ | **R2 / Object Storage**            | アイコン画像のアップロード       |
-| メール送信         | **Nodemailer + Gmail SMTP**        | パスワードリセット機能           |
-| 入退室通知         | **Discord Webhook**                | 入退室を Discord で通知          |
-| デプロイ           | **Vercel**                         | サーバーレス環境でのホスティング |
-| CI/CD              | **GitHub Actions + Vercel**        | 自動テスト・デプロイパイプライン |
+| 項目           | 使っているもの                                               |
+| -------------- | ------------------------------------------------------------ |
+| フレームワーク | Next.js 16（App Router）・React 19・TypeScript               |
+| DB             | PostgreSQL（Prisma Postgres）・Prisma 6                      |
+| 認証           | JWT（180 日有効。アプリはほとんど開かれないため長め）        |
+| 画像           | Cloudflare R2（S3 互換）。200KB 以下に圧縮（sharp）          |
+| メール         | Nodemailer（パスワード再設定）                               |
+| 通知           | Discord Webhook                                              |
+| 公開           | Vercel（main にマージすると本番に反映、PR ごとにプレビュー） |
+| テスト         | Jest（単体テスト・本物の Postgres を使う結合テスト）         |
+| CI             | GitHub Actions                                               |
 
-## 技術選定の理由
+## 開発を始める
 
-### **Next.js 15.3.3 + React 19.0.0**
-
-- **Vercel との親和性**: Next.js 公式推奨のホスティングサービスであり、デプロイ・スケーリング・SSL・CDN 最適化が自動化されている。特に main ブランチへの push で本番環境が自動更新され、プルリクエストごとにプレビュー環境も自動生成されるため、開発体験が非常に良い。
-- **App Router**: モダンなファイルベースルーティング
-- **TypeScript 統合**: 型安全性による開発効率の向上
-- **API Routes**: フルスタック開発が 1 つのフレームワークで完結
-
-### **PostgreSQL + Prisma Accelerate**
-
-- **PostgreSQL**: 本格的なリレーショナルデータベースでの実装経験
-- **Prisma ORM**: 型安全なクエリとスキーマ管理
-- **Prisma Accelerate**: コネクションプールとクエリキャッシュでパフォーマンス最適化
-
-### **JWT 認証**
-
-- **アプリ化の考慮**: Cookie などは Web 前提なのに対して、JWT はさまざまなプラットフォームに対応
-- **技術力向上**: BaaS に頼りたくなかった
-
-### **CI/CD パイプライン**
-
-- **GitHub Actions**: コード品質チェック、自動テスト実行
-- **Vercel 自動デプロイ**: main ブランチへの push 時に本番環境自動更新
-- **プレビューデプロイ**: PR 作成時の自動プレビュー環境生成
-- **環境変数管理**: 本番・開発環境での設定自動切り替え
-
-## 機能概要
-
-### ユーザー管理
-
-- ユーザー登録（名前・メール・パスワード・アイコン画像）
-- 所属オフィス選択（岡山 / 東京）
-- JWT 認証によるログイン
-- パスワードリセット（メール送信）
-
-### 入退室管理
-
-- 入室・退室の記録
-- 入室者一覧の表示（ログインユーザーと同じオフィスのメンバーのみ）
-- リアルタイム状態更新
-
-### 通知機能
-
-#### Discord 連携による入退室通知
-
-オフィスへの入室・退室があるたびに、指定した Discord チャンネルへ自動で通知が送信されます。
-
-- **通知内容**: 入室・退室したユーザー名を表示。
-
-### セキュリティ機能
-
-- bcryptjs によるパスワードハッシュ化
-- JWT トークン認証（7 日間有効）
-
-## 技術的なポイント
-
-### 楽観的 UI (Optimistic UI) 実装
-
-入退室ボタン操作で即時 UX を向上させるため、API 完了を待たずフロント状態を先行更新。
-
-### 流れ (例: 入室)
-
-1. `entered` を即 `true` にセット / `isPending` と `pendingAction='enter'` を設定
-2. API `POST /users/{id}/enter` 実行
-3. 成功時: サーバー再取得 (`fetchUserAndEnteredUsers`) → 実際の入室一覧に自分が存在するか判定
-4. 一致したら `isPending` / `pendingAction` を解除
-5. 失敗時: 事前に保存した `prev` を使って `entered` をロールバック
-
-### 退室も同様
-
-- 退室時は一旦 `entered=false` に設定 → API 成功後、一覧から自分が消えたことを確認して確定
-
-### エッジケース対応
-
-- 連打防止: `isPending` が true の間はボタン無効化
-- サーバー結果と食い違い時: 監視 `useEffect` で `enteredUsers` 差異を検出し安全に確定/解除
-- エラー時: 例外キャッチで即ロールバック + フラグ解除
-
-### API エンドポイントの相対パス化
-
-本番環境では `API_BASE_URL` を `/api` のような相対パスで指定しています。これにより、Vercel などのサーバーレス環境やプレビュー環境でも、ドメインやサブドメインの違いを意識せずに API 通信が可能です。
-
-- **メリット**: デプロイ先の URL が変わっても設定変更不要。CORS エラーや環境ごとの URL 管理の手間を削減。
-- **開発環境**: `http://localhost:3000/api` など絶対パスで API にアクセス。
-- **本番環境**: `/api` の相対パスで API にアクセス。
-
-開発環境（localhost）では API ルートとフロントエンドが同じポート（例: 3000）で動作するので、相対パスだと意図しない URL に飛ぶことがあります。
-特に、Storybook や外部ツール、テスト環境、または別ポートでフロントエンドを動かしている場合、相対パスだと API リクエストが正しく localhost:3000 に届かず、通信エラーや CORS エラーになることがあります。
-そのため、開発時は`http://localhost:3000/api`のような絶対パスを使うことで、どこからでも確実に API へアクセスできるようにしています。
-
-### パフォーマンス最適化
-
-- **共有 Prisma Client**: インスタンス再利用で DB 接続最適化
-- **Prisma Accelerate**: コネクションプール・クエリキャッシュ
-- **ログイン時 Database Warmup**: 最適なタイミングで事前接続（重複防止）
-
-### 東京オフィス対応
-
-- `Office` テーブルを新設し、ユーザーごとに所属オフィスを管理
-- ログイン後のダッシュボードでは所属オフィスのメンバーのみを自動フィルタ
-- UI 上でも所属オフィスを明示
-
-## OpenAPI ベースの SDK 運用
-
-Web/Native 双方から同じバックエンド API を利用するため、OpenAPI 仕様 (`openapi/openapi.yaml`) をソース・オブ・トゥルースとして TypeScript SDK を自動生成しています。
-
-### 手動生成手順
-
-1. **Docker Desktop を起動**し、`openapitools/openapi-generator-cli:v7.5.0` イメージが利用できる状態にする。
-2. ルートディレクトリで `npm run openapi:generate` を実行。
-   - `scripts/openapi/generate.mjs` が Docker モードで OpenAPI Generator を呼び出し、`src/generated/openapi-client` を再生成します。
-   - 生成後に `package.json` を補正し、`@office-manager/api-client` として publish 可能な構成を維持します。
-
-生成された SDK には `dist/`（ビルド成果物）を出力するための `npm run build` スクリプトが含まれます。Web/Native プロジェクトでは以下のように依存追加して利用します。
+Node.js 22 と Docker が必要です。
 
 ```bash
-npm install @office-manager/api-client
+npm ci
+cp .env.example .env           # JWT_SECRET などを入れる（Prisma も Next.js も .env を読む）
+docker compose up -d           # ローカルの Postgres を起動
+npm run db:seed                # マイグレーションと、開発用のオフィス・ユーザーを入れる
+npm run dev                    # http://localhost:3000
 ```
 
-### CI での自動 publish
+開発用のユーザーは `dev@4nonome.com` / `local-dev-password` です（[prisma/seed.sql](prisma/seed.sql)）。
 
-`.github/workflows/publish-openapi-client.yml` は `openapi/**` に変更が入った push をトリガーし、以下を実行します。
+> **注意:** 本番の値（とくに `DATABASE_URL`）をローカルの `.env` に入れないでください。`prisma migrate dev` などが本番の DB を書き換えてしまいます。本番の値は Vercel にだけ置きます（`db:seed` と結合テストは、ローカル以外の DB では実行しないようにしています）。
 
-- `npm run openapi:generate` で SDK を再生成
-- `src/generated/openapi-client` で `npm install` → `npm run build`
-- `npm publish --access restricted`
+## よく使うコマンド
 
-`NPM_TOKEN` シークレットを設定することで Private npm レジストリへ自動公開されます。必要に応じて `workflow_dispatch` で手動実行も可能です。
+| コマンド                   | 内容                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `npm run dev`              | 開発サーバー                                                                         |
+| `npm test`                 | 単体テスト                                                                           |
+| `npm run test:coverage`    | 単体テスト（カバレッジ付き。`coverage/index.html`）                                  |
+| `npm run test:integration` | 結合テスト（ローカルの Postgres が必要。DB の中身は消える）                          |
+| `npm run lint`             | ESLint                                                                               |
+| `npm run format`           | Prettier で整形                                                                      |
+| `npm run typecheck`        | 型チェック                                                                           |
+| `npm run db:seed`          | ローカルの DB に開発用のデータを入れる                                               |
+| `npm run openapi:generate` | `openapi/openapi.yaml` から api-client を生成（`../api-client` に出力。Java が必要） |
 
-### CI/CD パイプライン
+## テストと CI
 
-- **GitHub Actions**: ESLint によるコード品質チェック、型検査の自動実行
-- **Vercel 自動デプロイ**: Git push トリガーでの本番環境自動更新
-- **プレビュー環境**: プルリクエスト毎の独立した検証環境
-- **ゼロダウンタイム**: ローリングデプロイによる無停止更新
-- **テスト自動実行 & カバレッジ収集**: PR や main ブランチへの push 時に Jest でユニットテストを自動実行し、カバレッジレポート（HTML/LCOV）や JUnit 形式のテスト結果を CI 上に保存。
+- **単体テスト**（`__tests__/unit`）: Prisma をモックして、ルートと `src/lib` の動きを確かめます。カバレッジが下がると CI が落ちます。
+- **結合テスト**（`__tests__/integration`）: 本物の Postgres で、入室の保留 → 確定 → 退室の保留 → 確定 → 夜間の一括退室の流れと、アプリが呼ぶ API を通します。
+- **OpenAPI のテスト**（`__tests__/unit/openapi.test.ts`）: 実装したルートと `openapi/openapi.yaml` が一致しているかを確かめます。ルートを足したら仕様も足してください。
 
-## テスト戦略
+PR を作ると GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）が次を実行します。ビルドは Vercel のプレビューで確かめています。
 
-本プロジェクトでは **Jest (@latest v30)** を利用したユニットテスト中心の構成。
+| ジョブ                      | 内容                                                                                               |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| Lint・整形・型チェック      | ESLint・Prettier・tsc                                                                              |
+| テスト・DB マイグレーション | マイグレーションが空の DB に適用できるか・`schema.prisma` と一致しているか、単体テスト、結合テスト |
 
-### 対象範囲
-
-- `src/app/api/**/route.ts` : API Route の純粋関数性を活かし **NextRequest/NextResponse** を直接呼び出す形でテスト
-- `src/lib` : Prisma クライアントラッパ / 設定モジュール
-- `src/utils` : 日付ユーティリティなど副作用を持たない関数群
-
-### モック戦略
-
-- **Prisma**: `jest.mock('@/lib/prisma')` で `prisma.user.findUnique` などを差し替え DB 依存を排除
-- **JWT**: `jsonwebtoken.verify` をモックしトークン検証分岐を網羅
-- **Warmup / Singleton**: グローバルキャッシュ挙動をテストし再接続抑制を検証
-
-### カバレッジ
-
-`npm test` 実行時に `--coverage` で収集し、`coverage/` に HTML / lcov / text を出力。主な対象は:
+## ディレクトリ構成
 
 ```
-src/utils/**/*
-src/app/api/**/*
-src/lib/**/*
+src/
+  app/
+    api/            API（route.ts）。1 ファイル = 1 つの URL
+    page.tsx など   Web の画面
+  components/       画面の部品
+  lib/
+    attendance.ts   入退室の記録・保留の確定（中心となる処理）
+    http.ts         API ルートの共通処理（認証・エラー応答など）
+    user.ts         ユーザー情報の変換（パスワードを返さない・画像の URL）
+    discord.ts      Discord への通知
+    storage.ts      プロフィール画像の保存（R2）
+    client/api.ts   Web の画面から API を呼ぶ処理
+  types/api.ts      Web の画面で使う API の型
+prisma/
+  schema.prisma     DB の設計
+  migrations/       DB の変更履歴
+openapi/
+  openapi.yaml      API の仕様（api-client の元）
+__tests__/          テスト
+docs/               引き継ぎ資料・運用の手順
 ```
 
-## CI (GitHub Actions) 詳細
+API ルートは、[src/lib/http.ts](src/lib/http.ts) の `handleRoute` で包み、「入力の確認 → 認証 → 本処理」の順に書きます。失敗は `HttpError` を投げると、そのステータスのレスポンスになります。
 
-ワークフロー: `.github/workflows/test.yml`
+```ts
+export const POST = handleRoute('入室に失敗しました', async (req: NextRequest, context: IdContext) => {
+  const userId = await parseIdParam(context); // 数値でなければ 400
+  requireSelf(req, userId);                   // トークンがなければ 401、他人なら 403
+  const user = await findUserOrThrow(userId); // いなければ 404
+  ...
+});
+```
 
-### トリガー
+## API を変えるとき
 
-- `pull_request` → `main` ブランチ
-- `push` → `main`
+1. `src/app/api` のルートを変える（テストも足す）
+2. `openapi/openapi.yaml` を合わせて直す（`openapi.test.ts` が確かめる）。互換性のない変更なら `info.version` の先頭の数字を上げる
+3. main にマージすると、GitHub Actions が api-client に PR を作る → マージするとタグが付く
+4. アプリ（native）の `package.json` の api-client のタグを書き換える
 
-### 実行ステップ概要
+## DB（スキーマ）を変えるとき
 
-1. チェックアウト
-2. Node 20 セットアップ（npm キャッシュ利用）
-3. `npm ci --include=dev` で prod+dev 依存を完全再現
-4. PostgreSQL(16) サービス起動（ヘルスチェックで待機）
-5. `prisma generate` → クライアント生成
-6. `prisma migrate deploy` → 本番互換のマイグレーション適用
-7. `npm test -- --ci --reporters=default --reporters=jest-junit`
-8. 成功時: `coverage/` をアーティファクト保存
-9. 常時: `junit.xml` (jest-junit) を保存
+1. `prisma/schema.prisma` を直し、`npx prisma migrate dev --name <内容>` でマイグレーションを作る（ローカルの DB で）
+2. PR を作る（CI が、空の DB に適用できるか・schema と一致しているかを確かめる）
+3. **マージの前に**、本番の DB に適用する: `DATABASE_URL=<本番の値> npx prisma migrate deploy`
+   - 列の追加は先に適用しても、今動いているコードに影響しません。列の削除は、その列を使わないコードを先に本番に出してから適用します
+4. マージする（Vercel が本番に反映）
 
-### 生成物
+ビルドではマイグレーションを実行しません。詳しくは [docs/operations.md](docs/operations.md)。
 
-- `coverage-report` (HTML/LCOV)
-- `junit-report` (CI 上のテスト可視化用)
+## 環境変数
 
-### テストコードを実装した意図
+見本は [.env.example](.env.example) です。本番の値は Vercel の Environment Variables にあります。
 
-今後さまざまな機能追加やリファクタリングを行う際、「既存機能が壊れていないかの確認に毎回多くの時間を取られる」といった状況を避け、安心して開発できる体験を実現するためです。
+| 名前                                                                                                              | 用途                                                             |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `DATABASE_URL`                                                                                                    | DB の接続先                                                      |
+| `JWT_SECRET`                                                                                                      | ログイン用トークンの署名鍵（変えると全員がログインし直しになる） |
+| `CRON_SECRET`                                                                                                     | cron-job.org から呼ぶ API の秘密の値                             |
+| `DISCORD_WEBHOOK_URL_DEFAULT` / `DISCORD_WEBHOOK_URL_<オフィスのコード>`                                          | Discord の通知先                                                 |
+| `R2_PUBLIC_URL` / `R2_S3_ENDPOINT` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_REGION` | プロフィール画像の保存先（Cloudflare R2）                        |
+| `NEXT_PUBLIC_URL` / `SMTP_*`                                                                                      | パスワード再設定メール                                           |

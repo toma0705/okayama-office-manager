@@ -6,6 +6,13 @@
  */
 import { execFileSync } from 'node:child_process';
 
+// .env を読む（すでに環境変数で指定されていれば、そちらを優先する）
+try {
+  process.loadEnvFile('.env');
+} catch {
+  // .env がなければ環境変数だけを使う
+}
+
 const url = process.env.DATABASE_URL ?? '';
 let host = '';
 try {
