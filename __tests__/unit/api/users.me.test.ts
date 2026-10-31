@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { GET as me } from '@/app/api/users/me/route';
 
 jest.mock('@/lib/prisma', () => ({
