@@ -1,40 +1,40 @@
 openapi: 3.0.3
 info:
   title: Office Manager API
-  version: 7.7.2
+  # api-client のバージョンになる（仕様を変えたら上げる。互換性のない変更なら先頭の数字を上げる）
+  version: 8.0.0
   description: |
-    Web とモバイルクライアントから共通で利用する Office Manager バックエンド API の OpenAPI 仕様です。
-    仕様は開発中であり、今後変更される可能性があります。
-  contact:
-    name: Office Manager Team
-    url: https://example.com
-    email: dev@example.com
+    入退室管理アプリ（Web・iOS・Android）が使う API の仕様。
+    実装は web/src/app/api にあり、全ルートがここに載っているかはテスト（openapi.test.ts）で確かめている。
+    この仕様から TypeScript のクライアント（office-manager-api-client）を生成する。
 servers:
-  - url: https://api.example.com
-    description: Production server (replace with actual hostname)
+  - url: https://okayama-office-manager.vercel.app/api
+    description: 本番
   - url: http://localhost:3000/api
-    description: Local development server (Next.js App Router)
+    description: ローカル開発
 tags:
   - name: Users
-    description: ユーザー管理や認証に関するエンドポイント
+    description: ユーザーと認証
+  - name: Attendance
+    description: 入退室の記録
   - name: Offices
-    description: オフィス情報の取得エンドポイント
+    description: オフィス
   - name: Notifications
-    description: 外部サービスへの通知連携
+    description: Discord への通知
   - name: Maintenance
-    description: システム保守・ヘルスチェック関連
+    description: 保守・定期実行
 paths:
   /users:
     get:
       tags: [Users]
       summary: ユーザー一覧の取得
-      description: ログイン中のユーザーに一覧を返します。`officeCode` を指定した場合は該当オフィスのユーザーのみに絞り込みます。
+      description: ログイン中のユーザーに一覧を返す。`officeCode` を指定すると、そのオフィスのユーザーだけにする。
       security:
         - bearerAuth: []
       parameters:
         - name: officeCode
           in: query
-          description: フィルタ対象のオフィスコード（大文字・小文字は区別されません）
+          description: 絞り込むオフィスのコード（大文字・小文字は区別しない）
           schema:
             type: string
       responses:
@@ -47,17 +47,15 @@ paths:
                 items:
                   $ref: '#/components/schemas/UserListItem'
         '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/UnexpectedError'
     post:
       tags: [Users]
       summary: ユーザー新規登録
-      description: フォームデータを受け取り、プロフィール画像をアップロードした上でユーザーを作成します。
+      description: |
+        プロフィール画像（JPEG・PNG・GIF・WebP・HEIC）を 200KB 以下に圧縮して保存し、ユーザーを作る。
+        メールアドレスは @4nonome.com のみ。
       requestBody:
         required: true
         content:
@@ -85,18 +83,18 @@ paths:
                   description: プロフィール画像ファイル
                 officeCode:
                   type: string
-                  description: 登録先オフィスのコード（大文字・小文字は区別されません）
+                  description: 登録先オフィスのコード（大文字・小文字は区別しない）
       responses:
         '201':
           description: 作成成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserWithOffice'
+                $ref: '#/components/schemas/UserSafe'
         '400':
           $ref: '#/components/responses/BadRequest'
         '409':
-          description: メールアドレス重複
+          description: メールアドレスが登録済み
           content:
             application/json:
               schema:
@@ -107,65 +105,55 @@ paths:
     get:
       tags: [Users]
       summary: ユーザー詳細の取得
-      description: 本人のログイン用トークンでのみ操作できます。
+      description: 本人のログイン用トークンでのみ操作できる。
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UserIdPathParam'
       responses:
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: 本人以外のユーザーは操作できない
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDetail'
+                $ref: '#/components/schemas/UserSafe'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags: [Users]
       summary: ユーザー削除
-      description: 本人のログイン用トークンでのみ操作できます。
+      description: 本人のログイン用トークンでのみ操作できる。プロフィール画像も削除する。
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UserIdPathParam'
       responses:
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: 本人以外のユーザーは操作できない
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 削除成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/UnexpectedError'
     patch:
       tags: [Users]
-      summary: ユーザーノートの更新
-      description: 本人のログイン用トークンでのみ操作できます。
+      summary: メモの更新
+      description: 本人のログイン用トークンでのみ操作できる。
       security:
         - bearerAuth: []
       parameters:
@@ -183,30 +171,137 @@ paths:
                   type: string
                   nullable: true
       responses:
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: 本人以外のユーザーは操作できない
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDetail'
+                $ref: '#/components/schemas/UserSafe'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/{id}/enter:
+    post:
+      tags: [Attendance]
+      summary: 入室（Web の入室ボタン）
+      description: すぐに入室にする。退室の保留中なら、入室の時刻を保ったまま保留を取り消す（resumed）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      responses:
+        '200':
+          description: 入室した
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/{id}/exit:
+    post:
+      tags: [Attendance]
+      summary: 退室（Web の退室ボタン）
+      description: すぐに退室にする。すでに退室中なら 400。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      responses:
+        '200':
+          description: 退室した
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/{id}/arrive:
+    post:
+      tags: [Attendance]
+      summary: ビーコンの圏内になった（アプリ）
+      description: |
+        すぐには入室にせず保留にする。確認の時間（1 分）の間に圏外にならなければ、サーバーが入室を確定して Discord に通知する。
+        - 退室中 → 入室の保留を始める（pending）
+        - 退室の保留中 → 猶予の間に戻ったので保留を取り消す（entered, resumed）
+        - 入室中 → 何もしない（entered）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      responses:
+        '200':
+          description: 記録した
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /users/{id}/leave:
+    post:
+      tags: [Attendance]
+      summary: ビーコンの圏外になった（アプリ）
+      description: |
+        すぐには退室にせず保留にする。猶予（15 分）の間に戻らなければ、サーバーが退室を確定して Discord に通知する。
+        - 入室中 → 退室の保留を始める（pending）
+        - 入室の保留中 → 前を通っただけなので保留を取り消す（exited）
+        - 退室中 → 何もしない（exited）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPathParam'
+      responses:
+        '200':
+          description: 記録した
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/UnexpectedError'
   /users/login:
     post:
       tags: [Users]
       summary: ログイン
+      description: ログイン用トークン（JWT、180 日有効）を発行する。
       requestBody:
         required: true
         content:
@@ -242,15 +337,18 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
-          description: 認証失敗
+          description: メールアドレスまたはパスワードが違う
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /users/me:
     get:
       tags: [Users]
-      summary: 認証済みユーザー情報
+      summary: ログイン中のユーザーと、同じオフィスで入室中のユーザー
+      description: 時間を過ぎた入退室の保留を確定してから返す。
       security:
         - bearerAuth: []
       responses:
@@ -271,17 +369,16 @@ paths:
                     items:
                       $ref: '#/components/schemas/EnteredUser'
         '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /users/reset-password-request:
     post:
       tags: [Users]
-      summary: パスワードリセット申請
+      summary: パスワード再設定の申請
+      description: 再設定ページの URL をメールで送る（30 分有効）。登録されていないメールアドレスでも同じ応答を返す。
       requestBody:
         required: true
         content:
@@ -296,7 +393,7 @@ paths:
                   format: email
       responses:
         '200':
-          description: 申請を受け付けました（対象ユーザーが存在しない場合も同様の応答）
+          description: 申請を受け付けた
           content:
             application/json:
               schema:
@@ -308,14 +405,14 @@ paths:
   /users/reset-password/{token}:
     post:
       tags: [Users]
-      summary: パスワードリセット実行
+      summary: パスワードの再設定
       parameters:
         - name: token
           in: path
           required: true
           schema:
             type: string
-          description: リセットトークン
+          description: メールで届いた再設定用のトークン
       requestBody:
         required: true
         content:
@@ -330,7 +427,7 @@ paths:
                   format: password
       responses:
         '200':
-          description: パスワードをリセットしました
+          description: パスワードを再設定した
           content:
             application/json:
               schema:
@@ -342,8 +439,10 @@ paths:
   /notify:
     post:
       tags: [Notifications]
-      summary: Discord 通知送信
-      description: 入退室イベントを Discord Webhook に投稿します。名前とオフィスは送信内容ではなく、トークンのユーザーから決まります。
+      summary: Discord に通知する
+      description: |
+        入室・退室は、そのときの在室状況を添えて 1 通で送る。メモはメモだけ送る。
+        名前とオフィスは送信内容ではなく、トークンのユーザーから決まる。
       security:
         - bearerAuth: []
       requestBody:
@@ -358,24 +457,14 @@ paths:
                 status:
                   type: string
                   enum: ['入室', '退室', 'メモを追加']
+                  # 生成するクライアントでの名前（日本語のままだとコードの名前にできない）
+                  x-enum-varnames: [Enter, Exit, Memo]
                 note:
                   type: string
                   nullable: true
       responses:
-        '400':
-          description: 不正なステータス
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '200':
-          description: 通知送信に成功
+          description: 通知した
           content:
             application/json:
               schema:
@@ -383,6 +472,12 @@ paths:
                 properties:
                   ok:
                     type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/UnexpectedError'
   /offices:
@@ -400,10 +495,59 @@ paths:
                   $ref: '#/components/schemas/Office'
         '500':
           $ref: '#/components/responses/UnexpectedError'
+  /cron/finalize-exits:
+    get:
+      tags: [Maintenance]
+      summary: 入退室の保留の確定（cron-job.org から毎分）
+      description: 確認の時間を過ぎた入室の保留と、猶予を過ぎた退室の保留を確定して Discord に通知する。
+      security:
+        - cronSecret: []
+      responses:
+        '200':
+          description: 確定した人数
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - entered
+                  - exited
+                properties:
+                  entered:
+                    type: integer
+                  exited:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /cron/nightly-checkout:
+    get:
+      tags: [Maintenance]
+      summary: 一括退室（cron-job.org から毎日 4:00）
+      description: 入室中の全員を退室にする。Discord には通知しない。
+      security:
+        - cronSecret: []
+      responses:
+        '200':
+          description: 退室にした人数
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - checkedOut
+                properties:
+                  checkedOut:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /warmup:
     get:
       tags: [Maintenance]
-      summary: Prisma クライアントウォームアップ
+      summary: DB への接続を先に済ませる
       responses:
         '200':
           description: 成功
@@ -420,11 +564,9 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
-        '500':
-          $ref: '#/components/responses/UnexpectedError'
     head:
       tags: [Maintenance]
-      summary: ヘルスチェック
+      summary: 死活確認
       responses:
         '200':
           description: 稼働中
@@ -434,6 +576,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: ログインで発行したトークン
+    cronSecret:
+      type: http
+      scheme: bearer
+      description: 定期実行用の秘密の値（Vercel の環境変数 CRON_SECRET）
   parameters:
     UserIdPathParam:
       name: id
@@ -442,7 +589,7 @@ components:
       schema:
         type: integer
         format: int32
-      description: ユーザーID
+      description: ユーザー ID
   schemas:
     Office:
       type: object
@@ -472,12 +619,14 @@ components:
           type: string
         iconFileName:
           type: string
+          description: 画像の URL
         office:
           allOf:
             - $ref: '#/components/schemas/Office'
           nullable: true
     UserSafe:
       type: object
+      description: クライアントに返すユーザー情報（パスワードのハッシュなどは含まない）
       required:
         - id
         - name
@@ -496,7 +645,7 @@ components:
           format: email
         iconFileName:
           type: string
-          description: 公開URL
+          description: 画像の URL
         note:
           type: string
           nullable: true
@@ -510,32 +659,46 @@ components:
           type: string
           format: date-time
           nullable: true
+        enterPendingSince:
+          type: string
+          format: date-time
+          nullable: true
+          description: 入室の保留中なら、ビーコンの圏内になった時刻
+        exitPendingSince:
+          type: string
+          format: date-time
+          nullable: true
+          description: 退室の保留中なら、ビーコンの圏外になった時刻
         officeId:
           type: integer
           format: int32
         office:
           $ref: '#/components/schemas/Office'
-    UserDetail:
-      allOf:
-        - $ref: '#/components/schemas/UserSafe'
-        - type: object
-          properties:
-            password:
-              type: string
-              description: ハッシュ化されたパスワード
-            resetToken:
-              type: string
-              nullable: true
-            resetTokenExpires:
-              type: string
-              format: date-time
-              nullable: true
-    UserWithOffice:
-      allOf:
-        - $ref: '#/components/schemas/UserSafe'
     EnteredUser:
       allOf:
         - $ref: '#/components/schemas/UserSafe'
+    AttendanceStatusResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [pending, entered, exited]
+          description: 記録したあとの状態（pending は保留中）
+        resumed:
+          type: boolean
+          description: 退室の保留を取り消して入室中に戻ったとき true
+    EnterResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        resumed:
+          type: boolean
+          description: 退室の保留を取り消して入室中に戻ったとき true
     MessageResponse:
       type: object
       required:
@@ -553,21 +716,34 @@ components:
         detail:
           type: string
           nullable: true
+          description: 利用者に見せてよい補足
   responses:
     BadRequest:
-      description: リクエストが不正です
+      description: リクエストが不正
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: トークンがない、不正、または期限切れ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 本人以外のユーザーは操作できない
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
-      description: 対象が見つかりません
+      description: 対象が見つからない
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     UnexpectedError:
-      description: 予期しないエラーが発生しました
+      description: 予期しないエラー
       content:
         application/json:
           schema:

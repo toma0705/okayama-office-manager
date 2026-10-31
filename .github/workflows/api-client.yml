@@ -1,0 +1,67 @@
+# main の openapi/openapi.yaml が変わったら、API クライアント（office-manager-api-client）を
+# 作り直して、そのリポジトリに PR を作る。
+# 書き込みにはシークレット API_CLIENT_TOKEN（api-client だけに権限を絞ったトークン）が必要。
+name: API クライアントの更新
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - openapi/**
+      - openapitools.json
+  workflow_dispatch:
+
+concurrency:
+  group: api-client
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: api-client に PR を作る
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: トークンが登録されているか確かめる
+        env:
+          TOKEN: ${{ secrets.API_CLIENT_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::シークレット API_CLIENT_TOKEN が未登録です（手順は docs/operations.md）"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - name: api-client を取得
+        uses: actions/checkout@v4
+        with:
+          repository: toma0705/office-manager-api-client
+          token: ${{ secrets.API_CLIENT_TOKEN }}
+          path: api-client
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # OpenAPI Generator は Java で動く
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - name: 仕様からクライアントを生成
+        run: npm run openapi:generate -- --out api-client
+      - name: コンパイルできるか確かめる
+        working-directory: api-client
+        run: npm install && npm run build
+      - name: PR を作る（変更がなければ何もしない）
+        uses: peter-evans/create-pull-request@v7
+        with:
+          path: api-client
+          token: ${{ secrets.API_CLIENT_TOKEN }}
+          branch: update-from-web
+          commit-message: OpenAPI 仕様の更新を反映する
+          title: OpenAPI 仕様の更新を反映する
+          body: |
+            web（okayama-office-manager）の `openapi/openapi.yaml` の変更から自動で作った PR です。
+            元のコミット: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+            CI（ビルド）が通ったらマージしてください。マージすると `v<バージョン>` のタグが自動で付きます。
+            アプリで使うには、native の package.json の `@office-manager/api-client` のタグを書き換えてください。
