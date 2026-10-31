@@ -1,12 +1,12 @@
 /**
  * 通知配信 API
- * POST: 入退室イベントを Discord Webhook に転送し、在室ボードを更新する
+ * POST: 入退室イベントを Discord Webhook に転送する（入退室は在室状況を添えて送る）
  * ログイン用トークンが必要。名前とオフィスは送信内容ではなくトークンのユーザーから決める（なりすまし防止）
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUserId } from '@/lib/auth';
-import { getDefaultWebhookUrl, resolveWebhookUrl, updateAttendanceBoard } from '@/lib/discord';
+import { getDefaultWebhookUrl, postAttendanceMessage, resolveWebhookUrl } from '@/lib/discord';
 
 const NOTIFY_STATUSES = ['入室', '退室', 'メモを追加'];
 
@@ -53,15 +53,15 @@ export async function POST(req: NextRequest) {
   const attendanceMessage = `${user} さんが ${status} しました！`;
   const content = trimmedNote ? `${user} さんのメモ: ${trimmedNote}` : attendanceMessage;
 
-  await fetch(targetWebhook, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
-  });
-
-  // 入退室のときだけ在室ボードも更新する（メモ追加では更新しない）
+  // 入退室のときは、そのときの在室状況を添えて 1 通で送る（メモ追加はメモだけ）
   if (officeCode && (status === '入室' || status === '退室')) {
-    await updateAttendanceBoard(officeCode, targetWebhook);
+    await postAttendanceMessage(officeCode, targetWebhook, content);
+  } else {
+    await fetch(targetWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
   }
 
   return NextResponse.json({ ok: true });

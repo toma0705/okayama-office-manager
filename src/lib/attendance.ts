@@ -5,12 +5,12 @@
  * Discord に退室・入室が流れない。戻らなければ、ここで退室を確定して Discord に通知する。
  */
 import { prisma } from '@/lib/prisma';
-import { getDefaultWebhookUrl, resolveWebhookUrl, updateAttendanceBoard } from '@/lib/discord';
+import { getDefaultWebhookUrl, postAttendanceMessage, resolveWebhookUrl } from '@/lib/discord';
 
 export const EXIT_GRACE_MINUTES = 15;
 
 /**
- * 猶予を過ぎた保留を退室に確定し、Discord に通知する。確定した人数を返す。
+ * 猶予を過ぎた保留を退室に確定し、在室状況を添えて Discord に通知する。確定した人数を返す。
  * 定期実行（/api/cron/finalize-exits）と、在室状況を返す API の両方から呼ばれる。
  */
 export const finalizePendingExits = async (now = new Date()): Promise<number> => {
@@ -36,18 +36,16 @@ export const finalizePendingExits = async (now = new Date()): Promise<number> =>
   }
 
   const defaultWebhook = getDefaultWebhookUrl();
-  if (defaultWebhook && finalized.length > 0) {
+  if (defaultWebhook) {
     for (const user of finalized) {
-      await fetch(resolveWebhookUrl(user.office.code, defaultWebhook), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `${user.name} さんが 退室 しました！` }),
-      }).catch(error => console.warn('Failed to notify finalized exit', error));
-    }
-    for (const officeCode of new Set(finalized.map(user => user.office.code))) {
-      await updateAttendanceBoard(officeCode, resolveWebhookUrl(officeCode, defaultWebhook));
+      await postAttendanceMessage(
+        user.office.code,
+        resolveWebhookUrl(user.office.code, defaultWebhook),
+        `${user.name} さんが 退室 しました！`,
+      );
     }
   }
 
   return finalized.length;
 };
+

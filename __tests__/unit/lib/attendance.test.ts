@@ -5,7 +5,7 @@ jest.mock('@/lib/prisma', () => ({
 jest.mock('@/lib/discord', () => ({
   getDefaultWebhookUrl: jest.fn(() => 'https://discord.com/api/webhooks/default'),
   resolveWebhookUrl: jest.fn((_code: string, fallback: string) => fallback),
-  updateAttendanceBoard: jest.fn().mockResolvedValue(undefined),
+  postAttendanceMessage: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { EXIT_GRACE_MINUTES, finalizePendingExits } from '@/lib/attendance';
@@ -40,7 +40,7 @@ describe('finalizePendingExits', () => {
     );
   });
 
-  it('退室を圏外になった時刻で確定し、Discord に通知して在室ボードを更新する', async () => {
+  it('退室を圏外になった時刻で確定し、在室状況を添えて Discord に通知する', async () => {
     prisma.user.findMany.mockResolvedValue([
       { id: 1, name: '山田', exitPendingSince: pendingSince, office: { code: 'OKAYAMA' } },
     ]);
@@ -53,15 +53,10 @@ describe('finalizePendingExits', () => {
       where: { id: 1, entered: true, exitPendingSince: pendingSince },
       data: { entered: false, exitedAt: pendingSince, note: null, exitPendingSince: null },
     });
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://discord.com/api/webhooks/default',
-      expect.objectContaining({
-        body: JSON.stringify({ content: '山田 さんが 退室 しました！' }),
-      }),
-    );
-    expect(discord.updateAttendanceBoard).toHaveBeenCalledWith(
+    expect(discord.postAttendanceMessage).toHaveBeenCalledWith(
       'OKAYAMA',
       'https://discord.com/api/webhooks/default',
+      '山田 さんが 退室 しました！',
     );
   });
 
@@ -74,7 +69,7 @@ describe('finalizePendingExits', () => {
     const count = await finalizePendingExits(now);
 
     expect(count).toBe(0);
-    expect(global.fetch).not.toHaveBeenCalled();
-    expect(discord.updateAttendanceBoard).not.toHaveBeenCalled();
+    expect(discord.postAttendanceMessage).not.toHaveBeenCalled();
   });
 });
+
