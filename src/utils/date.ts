@@ -4,6 +4,6 @@ export function formatDateTime(dt: string | Date | null | undefined): string {
   if (isNaN(date.getTime())) return '-';
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(
-    date.getHours()
+    date.getHours(),
   )}:${pad(date.getMinutes())}`;
 }

@@ -75,8 +75,7 @@ export async function GET(req: NextRequest) {
       },
       enteredUsers: enteredUsers.map(enteredUser => ({
         ...enteredUser,
-        iconFileName:
-          resolveUserIconUrl(enteredUser.iconFileName) ?? enteredUser.iconFileName,
+        iconFileName: resolveUserIconUrl(enteredUser.iconFileName) ?? enteredUser.iconFileName,
       })),
     });
   } catch {

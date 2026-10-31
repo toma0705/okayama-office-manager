@@ -41,14 +41,14 @@ describe('src/lib/prisma', () => {
   });
 
   it('warmupPrisma: 失敗しても例外を投げず warn を出す', async () => {
-  const mod = require('@/lib/prisma');
-  const spyWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-  const spyLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-  // 次の1回だけ失敗させる
-  mod.prisma.$queryRaw.mockRejectedValueOnce(new Error('boom'));
-  await mod.warmupPrisma();
-  expect(spyWarn).toHaveBeenCalled();
-  spyWarn.mockRestore();
-  spyLog.mockRestore();
+    const mod = require('@/lib/prisma');
+    const spyWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const spyLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // 次の1回だけ失敗させる
+    mod.prisma.$queryRaw.mockRejectedValueOnce(new Error('boom'));
+    await mod.warmupPrisma();
+    expect(spyWarn).toHaveBeenCalled();
+    spyWarn.mockRestore();
+    spyLog.mockRestore();
   });
 });

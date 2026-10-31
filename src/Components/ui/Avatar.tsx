@@ -18,7 +18,9 @@ export function Avatar({ src, alt, size = 64, style, className, allowExternal = 
     !src.startsWith('http') &&
     !src.startsWith('blob:') &&
     !src.startsWith('data:')
-      ? (r2Public ? `${r2Public}/${src.replace(/^\/+/, '')}` : `/icons/${src.replace(/^\/+/, '')}`)
+      ? r2Public
+        ? `${r2Public}/${src.replace(/^\/+/, '')}`
+        : `/icons/${src.replace(/^\/+/, '')}`
       : src;
   const isDirectPreview = !!(
     resolvedSrc &&

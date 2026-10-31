@@ -8,7 +8,11 @@ type UserSecrets = {
 export const omitUserSecrets = <T extends UserSecrets>(
   user: T,
 ): Omit<T, 'password' | 'resetToken' | 'resetTokenExpires'> => {
-  const { password: _password, resetToken: _resetToken, resetTokenExpires: _expires, ...safe } =
-    user;
+  const {
+    password: _password,
+    resetToken: _resetToken,
+    resetTokenExpires: _expires,
+    ...safe
+  } = user;
   return safe;
 };

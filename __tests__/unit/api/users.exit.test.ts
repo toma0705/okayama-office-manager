@@ -24,7 +24,7 @@ describe('POST /api/users/[id]/exit', () => {
   });
 
   it('正常系: 退室に成功', async () => {
-  prisma.user.findUnique.mockResolvedValue({ id: 1, entered: true, note: 'テストメモ' });
+    prisma.user.findUnique.mockResolvedValue({ id: 1, entered: true, note: 'テストメモ' });
     prisma.user.update.mockResolvedValue({ id: 1, entered: false });
 
     const req = new NextRequest('http://localhost/api/users/1/exit', { method: 'POST' });

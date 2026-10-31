@@ -93,7 +93,6 @@ export async function DELETE(req: NextRequest, context: any) {
         if (removalResult.error) {
           console.warn('Storage icon deletion failed:', removalResult.error);
         }
-
       } catch (error) {
         console.warn('プロフィール画像削除処理でエラーが発生しました:', error);
       }

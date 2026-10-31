@@ -5,7 +5,13 @@ import nextTs from 'eslint-config-next/typescript';
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores(['.next/**', 'coverage/**', 'node_modules/**', 'src/generated/**', 'next-env.d.ts']),
+  globalIgnores([
+    '.next/**',
+    'coverage/**',
+    'node_modules/**',
+    'src/generated/**',
+    'next-env.d.ts',
+  ]),
   {
     rules: {
       // 使っていない変数・引数は消す。わざと受け取るだけの引数は `_` で始める

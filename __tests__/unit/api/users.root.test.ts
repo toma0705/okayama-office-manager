@@ -24,9 +24,7 @@ jest.mock('@/lib/storage', () => ({
   uploadUserIcon: jest.fn(),
   removeUserIconByUrl: jest.fn(),
   resolveUserIconUrl: jest.fn((value: string) =>
-    !value.startsWith('http') && !value.startsWith('/')
-      ? `https://example.r2.dev/${value}`
-      : value,
+    !value.startsWith('http') && !value.startsWith('/') ? `https://example.r2.dev/${value}` : value,
   ),
 }));
 
