@@ -8,7 +8,7 @@ jest.mock('@/lib/discord', () => ({
   postAttendanceMessage: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { EXIT_GRACE_MINUTES, finalizePendingExits } from '@/lib/attendance';
+import { EXIT_GRACE_MINUTES, checkoutAllEntered, finalizePendingExits } from '@/lib/attendance';
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const discord = jest.requireMock('@/lib/discord') as any;
@@ -73,3 +73,22 @@ describe('finalizePendingExits', () => {
   });
 });
 
+describe('checkoutAllEntered', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('入室中の全員を退室にし、保留とメモも消す（Discord には通知しない）', async () => {
+    const now = new Date('2026-10-31T19:00:00Z');
+    prisma.user.updateMany.mockResolvedValue({ count: 3 });
+
+    const count = await checkoutAllEntered(now);
+
+    expect(count).toBe(3);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { entered: true },
+      data: { entered: false, exitedAt: now, note: null, exitPendingSince: null },
+    });
+    expect(discord.postAttendanceMessage).not.toHaveBeenCalled();
+  });
+});

@@ -49,3 +49,15 @@ export const finalizePendingExits = async (now = new Date()): Promise<number> =>
   return finalized.length;
 };
 
+/**
+ * 入室中の全員を退室にする（毎日深夜の定期実行）。退室にした人数を返す。
+ * Bluetooth がオフだった、電池が切れたなどで退室を取りこぼした人が、
+ * 何日も入室中のまま残らないようにする。夜中に通知が並ばないよう Discord には通知しない。
+ */
+export const checkoutAllEntered = async (now = new Date()): Promise<number> => {
+  const { count } = await prisma.user.updateMany({
+    where: { entered: true },
+    data: { entered: false, exitedAt: now, note: null, exitPendingSince: null },
+  });
+  return count;
+};
