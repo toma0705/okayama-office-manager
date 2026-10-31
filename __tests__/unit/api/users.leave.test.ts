@@ -55,6 +55,24 @@ describe('POST /api/users/[id]/leave', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it('入室の保留中なら、保留を取り消す（前を通っただけ）', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 1,
+      entered: false,
+      exitPendingSince: null,
+      enterPendingSince: new Date('2026-10-31T09:00:00Z'),
+    });
+
+    const res = await call();
+    const json: any = await res.json();
+
+    expect(json.status).toBe('exited');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { enterPendingSince: null },
+    });
+  });
+
   it('退室済みなら何もしない', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: 1, entered: false, exitPendingSince: null });
 

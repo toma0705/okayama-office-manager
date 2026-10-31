@@ -22,6 +22,8 @@ model User {
   exitedAt          DateTime?
   /// ビーコンの圏外になった時刻。猶予（EXIT_GRACE_MINUTES）の間に戻らなければ退室を確定する
   exitPendingSince  DateTime?
+  /// ビーコンの圏内になった時刻。確認の時間（ENTER_CONFIRM_MINUTES）の間に圏外にならなければ入室を確定する
+  enterPendingSince DateTime?
   officeId          Int
   office            Office    @relation(fields: [officeId], references: [id])
 

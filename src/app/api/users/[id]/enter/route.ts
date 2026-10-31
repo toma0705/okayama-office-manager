@@ -44,6 +44,7 @@ export async function POST(req: NextRequest, context: any) {
         enteredAt: new Date(),
         exitedAt: null,
         exitPendingSince: null,
+        enterPendingSince: null,
       },
     });
 
