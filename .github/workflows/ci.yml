@@ -1,0 +1,77 @@
+# PR と main への push で、コードの品質チェックとテストを行う。
+# ビルドは Vercel のプレビューデプロイ（PR の「Vercel」チェック）で確かめている。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 同じブランチに続けて push したら、古い実行は止める
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint・整形・型チェック
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Prisma Client を生成（型チェックに必要）
+        run: npx prisma generate
+      - name: ESLint
+        run: npm run lint
+      - name: Prettier（整形されているか）
+        run: npm run format:check
+      - name: TypeScript の型チェック
+        run: npm run typecheck
+
+  test:
+    name: テスト・DB マイグレーション
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_test
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 5
+    env:
+      # CI 専用の使い捨ての DB（本番とは別）
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: マイグレーションを空の DB に適用できるか
+        run: npx prisma migrate deploy
+      - name: マイグレーションと schema.prisma が一致しているか
+        run: >-
+          npx prisma migrate diff --from-url "$DATABASE_URL"
+          --to-schema-datamodel prisma/schema.prisma --exit-code
+      - name: テスト（カバレッジ付き）
+        run: npm run test:coverage -- --ci
+      - name: カバレッジのレポートを保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+          if-no-files-found: ignore
