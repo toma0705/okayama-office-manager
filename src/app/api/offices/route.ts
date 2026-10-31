@@ -1,27 +1,15 @@
 /**
- * オフィス情報 API
- * GET: 登録フォーム等で選択肢として利用するオフィス一覧を返す
+ * GET /api/offices — オフィスの一覧（登録フォームやユーザー一覧の絞り込みで使う）
  */
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleRoute } from '@/lib/http';
+import { officeSummarySelect } from '@/lib/user';
 
-export async function GET() {
-  try {
-    const offices = await prisma.office.findMany({
-      select: {
-        id: true,
-        code: true,
-        name: true,
-      },
-      orderBy: { id: 'asc' },
-    });
-
-    return NextResponse.json(offices);
-  } catch (error) {
-    console.error('Failed to fetch offices:', error);
-    return NextResponse.json(
-      { error: 'オフィス一覧の取得に失敗しました', detail: String(error) },
-      { status: 500 },
-    );
-  }
-}
+export const GET = handleRoute('オフィス一覧の取得に失敗しました', async () => {
+  const offices = await prisma.office.findMany({
+    select: officeSummarySelect,
+    orderBy: { id: 'asc' },
+  });
+  return NextResponse.json(offices);
+});

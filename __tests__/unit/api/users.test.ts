@@ -23,6 +23,7 @@ jest.mock('@/lib/storage', () => ({
 }));
 
 jest.mock('@/utils/image', () => ({
+  isSupportedImageType: jest.requireActual('@/utils/image').isSupportedImageType,
   compressImageToLimit: jest.fn(async (buffer: Buffer, { mimeType }: any) => ({
     buffer,
     contentType: mimeType ?? 'image/png',

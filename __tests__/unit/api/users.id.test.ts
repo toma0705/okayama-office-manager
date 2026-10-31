@@ -127,12 +127,17 @@ describe('GET/DELETE/PATCH /api/users/[id]', () => {
   });
 
   it('PATCH: 200 更新成功', async () => {
-    const updated = { id: 1, note: 'hello' };
+    const updated = { id: 1, note: 'hello', iconFileName: 'icon.png', password: 'hash' };
     prisma.user.update.mockResolvedValue(updated);
     const req = { json: async () => ({ note: 'hello' }) } as any;
     const res = await patchUser(req, ctx(1));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual(updated);
+    // パスワードのハッシュは返さず、アイコンは URL にする
+    expect(json).toEqual({
+      id: 1,
+      note: 'hello',
+      iconFileName: 'https://cdn.example.com/icon.png',
+    });
   });
 });

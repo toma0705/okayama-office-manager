@@ -1,209 +1,112 @@
 /**
- * ユーザー管理API
- * GET: ユーザーリストの取得（ログイン中のユーザーのみ）
- * POST: 新規ユーザー登録とプロフィール画像のアップロード
+ * /api/users
+ * GET: ユーザーの一覧（ログイン中のみ）。?officeCode=OKAYAMA でオフィスを絞り込める
+ * POST: 新規登録（multipart/form-data）。プロフィール画像は圧縮してストレージ（R2）に保存する
  */
 export const runtime = 'nodejs';
+import { randomUUID } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import { MAX_ICON_SIZE_BYTES, resolveUserIconUrl, uploadUserIcon } from '@/lib/storage';
-import { compressImageToLimit } from '@/utils/image';
-import { getAuthenticatedUserId } from '@/lib/auth';
-import { omitUserSecrets } from '@/lib/user';
+import { handleRoute, HttpError, requireAuth } from '@/lib/http';
+import { MAX_ICON_SIZE_BYTES, uploadUserIcon } from '@/lib/storage';
+import { officeSummarySelect, toPublicUser, withIconUrl } from '@/lib/user';
+import { compressImageToLimit, isSupportedImageType } from '@/utils/image';
 
-const withResolvedIcon = <T extends { iconFileName?: string | null }>(user: T): T => {
-  if (typeof user.iconFileName !== 'string') {
-    return user;
-  }
+/** 登録できるメールアドレスのドメイン */
+const ALLOWED_EMAIL_DOMAIN = '@4nonome.com';
 
-  return {
-    ...user,
-    iconFileName: resolveUserIconUrl(user.iconFileName) ?? user.iconFileName,
-  };
-};
-
-/**
- * ユーザーリスト取得API
- * ログイン中のユーザーにのみ、一覧表示用の基本情報を返す
- */
-export async function GET(req: NextRequest) {
-  let userId: number | null = null;
-  try {
-    userId = getAuthenticatedUserId(req);
-  } catch {
-    userId = null;
-  }
-  if (!userId) {
-    return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
-  }
+export const GET = handleRoute('ユーザーリスト取得に失敗しました', async (req: NextRequest) => {
+  requireAuth(req);
 
   const officeCode = req.nextUrl.searchParams.get('officeCode')?.toUpperCase();
+  const users = await prisma.user.findMany({
+    where: officeCode ? { office: { code: officeCode } } : undefined,
+    select: { id: true, name: true, iconFileName: true, office: { select: officeSummarySelect } },
+    orderBy: { name: 'asc' },
+  });
+  return NextResponse.json(users.map(withIconUrl));
+});
+
+const readFormData = async (req: NextRequest) => {
   try {
-    const users = await prisma.user.findMany({
-      where: officeCode
-        ? {
-            office: {
-              code: officeCode,
-            },
-          }
-        : undefined,
-      select: {
-        id: true,
-        name: true,
-        iconFileName: true,
-        office: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
-    return NextResponse.json(users.map(withResolvedIcon));
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json(
-      { error: 'ユーザーリスト取得に失敗しました', detail: String(e) },
-      { status: 500 },
+    return await req.formData();
+  } catch {
+    throw new HttpError(400, 'リクエストの形式が正しくありません');
+  }
+};
+
+/** アップロードされたファイルか（テストの File も含む） */
+const isFile = (value: FormDataEntryValue | null): value is File =>
+  typeof value === 'object' && value !== null && typeof value.arrayBuffer === 'function';
+
+/** プロフィール画像を上限の容量以下に圧縮してストレージに保存し、保存先のパスを返す */
+const saveIcon = async (icon: File) => {
+  if (!isSupportedImageType(icon.type)) {
+    throw new HttpError(
+      400,
+      'プロフィール画像は JPEG・PNG・GIF・WebP・HEIC のいずれかを選んでください',
     );
   }
-}
 
-/**
- * ユーザー新規登録API
- * プロフィール画像をオブジェクトストレージ（R2等）にアップロードしてユーザー情報をDBに保存
- */
-export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData();
-    const name = formData.get('name')?.toString();
-    const email = formData.get('email')?.toString();
-    const password = formData.get('password')?.toString();
-    const icon = formData.get('icon');
-    const officeCode = formData.get('officeCode')?.toString().toUpperCase();
-
-    // Node.jsテスト環境のMockFile対応: File/Blobの型判定を緩和
-    const isFileLike = (f: any) =>
-      f &&
-      typeof f === 'object' &&
-      typeof f.arrayBuffer === 'function' &&
-      typeof f.name === 'string';
-    if (!name || !email || !password || !icon || !isFileLike(icon) || !officeCode) {
-      return NextResponse.json(
-        { error: 'name, email, password, icon, officeCode は必須です' },
-        { status: 400 },
-      );
-    }
-
-    // ドメイン制限
-    if (!email.endsWith('@4nonome.com')) {
-      return NextResponse.json(
-        { error: 'メールアドレスは @4nonome.com ドメインのみ登録可能です' },
-        { status: 400 },
-      );
-    }
-
-    // メールアドレスの重複チェック
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      return NextResponse.json(
-        { error: 'このメールアドレスは既に登録されています' },
-        { status: 409 },
-      );
-    }
-
-    // プロフィール画像のアップロード処理
-    const fileObj = icon as any;
-    let arrayBuffer: ArrayBuffer;
-    try {
-      arrayBuffer = await fileObj.arrayBuffer();
-    } catch (e) {
-      return NextResponse.json(
-        { error: 'ファイル読み込みに失敗しました', detail: String(e) },
-        { status: 500 },
-      );
-    }
-    const buffer = Buffer.from(arrayBuffer);
-
-    const ext = fileObj.name.split('.').pop() || 'png';
-    const originalContentType = fileObj.type || 'application/octet-stream';
-
-    const compressed = await compressImageToLimit(buffer, {
-      maxBytes: MAX_ICON_SIZE_BYTES,
-      mimeType: originalContentType,
-    });
-
-    if (compressed.buffer.length > MAX_ICON_SIZE_BYTES) {
-      const sizeKb = Math.ceil(compressed.buffer.length / 1024);
-      const maxKb = Math.floor(MAX_ICON_SIZE_BYTES / 1024);
-      return NextResponse.json(
-        {
-          error: 'プロフィール画像の容量を減らせませんでした',
-          detail: `圧縮後のファイルサイズが ${sizeKb}KB で、上限 ${maxKb}KB を超えています。`,
-        },
-        { status: 400 },
-      );
-    }
-
-    const finalExtension = compressed.wasCompressed ? compressed.extension : ext;
-    const finalContentType = compressed.contentType || originalContentType;
-    const fileName = `${uuidv4()}.${finalExtension}`;
-
-    let storagePath: string;
-    try {
-      const { storagePath: uploadedStoragePath } = await uploadUserIcon({
-        buffer: compressed.buffer,
-        fileName,
-        contentType: finalContentType,
-      });
-      storagePath = uploadedStoragePath;
-    } catch (error) {
-      console.error('Storage upload failed:', error);
-      return NextResponse.json(
-        { error: 'プロフィール画像のアップロードに失敗しました', detail: String(error) },
-        { status: 500 },
-      );
-    }
-
-    // パスワードをハッシュ化してユーザー作成
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const office = await prisma.office.findUnique({
-      where: { code: officeCode },
-    });
-    if (!office) {
-      return NextResponse.json({ error: 'officeCode が不正です' }, { status: 400 });
-    }
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        iconFileName: storagePath,
-        officeId: office.id,
-      },
-      include: {
-        office: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
-        },
-      },
-    });
-    // パスワードのハッシュなどは返さない
-    return NextResponse.json(withResolvedIcon(omitUserSecrets(user)), { status: 201 });
-  } catch (e) {
-    console.error('ユーザー登録エラー:', e);
-    return NextResponse.json(
-      { error: 'ユーザー登録に失敗しました', detail: String(e) },
-      { status: 500 },
+  const compressed = await compressImageToLimit(Buffer.from(await icon.arrayBuffer()), {
+    maxBytes: MAX_ICON_SIZE_BYTES,
+    mimeType: icon.type,
+  });
+  if (compressed.buffer.length > MAX_ICON_SIZE_BYTES) {
+    const sizeKb = Math.ceil(compressed.buffer.length / 1024);
+    const maxKb = Math.floor(MAX_ICON_SIZE_BYTES / 1024);
+    throw new HttpError(
+      400,
+      'プロフィール画像の容量を減らせませんでした',
+      `圧縮後のファイルサイズが ${sizeKb}KB で、上限 ${maxKb}KB を超えています。`,
     );
   }
-}
+
+  try {
+    const { storagePath } = await uploadUserIcon({
+      buffer: compressed.buffer,
+      fileName: `${randomUUID()}.${compressed.extension}`,
+      contentType: compressed.contentType,
+    });
+    return storagePath;
+  } catch (error) {
+    console.error('プロフィール画像のアップロードに失敗しました', error);
+    throw new HttpError(500, 'プロフィール画像のアップロードに失敗しました');
+  }
+};
+
+export const POST = handleRoute('ユーザー登録に失敗しました', async (req: NextRequest) => {
+  const formData = await readFormData(req);
+  const name = formData.get('name')?.toString();
+  const email = formData.get('email')?.toString();
+  const password = formData.get('password')?.toString();
+  const officeCode = formData.get('officeCode')?.toString().toUpperCase();
+  const icon = formData.get('icon');
+  if (!name || !email || !password || !officeCode || !isFile(icon)) {
+    throw new HttpError(400, 'name, email, password, icon, officeCode は必須です');
+  }
+
+  if (!email.endsWith(ALLOWED_EMAIL_DOMAIN)) {
+    throw new HttpError(400, `メールアドレスは ${ALLOWED_EMAIL_DOMAIN} ドメインのみ登録可能です`);
+  }
+  if (await prisma.user.findUnique({ where: { email } })) {
+    throw new HttpError(409, 'このメールアドレスは既に登録されています');
+  }
+  // 画像を保存する前に確かめる（不正なオフィスで画像だけが残らないように）
+  const office = await prisma.office.findUnique({ where: { code: officeCode } });
+  if (!office) throw new HttpError(400, 'officeCode が不正です');
+
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: await bcrypt.hash(password, 10),
+      iconFileName: await saveIcon(icon),
+      officeId: office.id,
+    },
+    include: { office: { select: officeSummarySelect } },
+  });
+  // パスワードのハッシュなどは返さない
+  return NextResponse.json(toPublicUser(user), { status: 201 });
+});

@@ -1,5 +1,5 @@
 jest.mock('@/lib/prisma', () => ({
-  prisma: { user: { findMany: jest.fn(), updateMany: jest.fn() } },
+  prisma: { user: { findMany: jest.fn(), updateMany: jest.fn(), update: jest.fn() } },
 }));
 
 jest.mock('@/lib/discord', () => ({
@@ -11,14 +11,110 @@ jest.mock('@/lib/discord', () => ({
 import {
   ENTER_CONFIRM_MINUTES,
   EXIT_GRACE_MINUTES,
+  arrive,
   checkoutAllEntered,
   confirmPendingEnters,
+  enterNow,
+  enteredData,
+  exitNow,
+  exitedData,
   finalizePendingExits,
+  leave,
   settlePendingAttendance,
 } from '@/lib/attendance';
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const discord = jest.requireMock('@/lib/discord') as any;
+
+const now = new Date('2026-10-31T10:00:00Z');
+const earlier = new Date('2026-10-31T09:50:00Z');
+// 状態の組み合わせ（lib/attendance.ts の先頭のコメントを参照）
+const exitedUser = { id: 1, entered: false, enterPendingSince: null, exitPendingSince: null };
+const enterPendingUser = { ...exitedUser, enterPendingSince: earlier };
+const enteredUser = { ...exitedUser, entered: true };
+const exitPendingUser = { ...enteredUser, exitPendingSince: earlier };
+
+describe('Web の入室・退室ボタン', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('enterNow: 退室中・入室の保留中なら、すぐに入室にする', async () => {
+    for (const user of [exitedUser, enterPendingUser]) {
+      prisma.user.update.mockClear();
+      await expect(enterNow(user, now)).resolves.toBe('entered');
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 1 }, data: enteredData(now) });
+    }
+  });
+
+  it('enterNow: 退室の保留中なら、入室の時刻を保ったまま保留を取り消す', async () => {
+    await expect(enterNow(exitPendingUser, now)).resolves.toBe('resumed');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { exitPendingSince: null },
+    });
+  });
+
+  it('exitNow: 入室中ならすぐに退室にし、退室中なら何もしない', async () => {
+    await expect(exitNow(enteredUser, now)).resolves.toBe(true);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 1 }, data: exitedData(now) });
+
+    prisma.user.update.mockClear();
+    await expect(exitNow(exitedUser, now)).resolves.toBe(false);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('ビーコンの検知（arrive / leave）', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('arrive: 退室中なら入室の保留を始める', async () => {
+    await expect(arrive(exitedUser, now)).resolves.toBe('pending');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { enterPendingSince: now },
+    });
+  });
+
+  it('arrive: 入室の保留中なら、最初に圏内になった時刻を保つ', async () => {
+    await expect(arrive(enterPendingUser, now)).resolves.toBe('pending');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('arrive: 退室の保留中なら取り消し、入室中なら何もしない', async () => {
+    await expect(arrive(exitPendingUser, now)).resolves.toBe('resumed');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { exitPendingSince: null },
+    });
+
+    prisma.user.update.mockClear();
+    await expect(arrive(enteredUser, now)).resolves.toBe('entered');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('leave: 入室中なら退室の保留を始め、保留中なら最初の時刻を保つ', async () => {
+    await expect(leave(enteredUser, now)).resolves.toBe('pending');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { exitPendingSince: now },
+    });
+
+    prisma.user.update.mockClear();
+    await expect(leave(exitPendingUser, now)).resolves.toBe('pending');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('leave: 入室の保留中なら取り消し（前を通っただけ）、退室中なら何もしない', async () => {
+    await expect(leave(enterPendingUser, now)).resolves.toBe('exited');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { enterPendingSince: null },
+    });
+
+    prisma.user.update.mockClear();
+    await expect(leave(exitedUser, now)).resolves.toBe('exited');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});
 
 describe('confirmPendingEnters', () => {
   const now = new Date('2026-10-31T10:00:00Z');
@@ -137,7 +233,13 @@ describe('finalizePendingExits', () => {
     expect(count).toBe(1);
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { id: 1, entered: true, exitPendingSince: pendingSince },
-      data: { entered: false, exitedAt: pendingSince, note: null, exitPendingSince: null },
+      data: {
+        entered: false,
+        exitedAt: pendingSince,
+        note: null,
+        enterPendingSince: null,
+        exitPendingSince: null,
+      },
     });
     expect(discord.postAttendanceMessage).toHaveBeenCalledWith(
       'OKAYAMA',
@@ -173,7 +275,13 @@ describe('checkoutAllEntered', () => {
     expect(count).toBe(3);
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { entered: true },
-      data: { entered: false, exitedAt: now, note: null, exitPendingSince: null },
+      data: {
+        entered: false,
+        exitedAt: now,
+        note: null,
+        enterPendingSince: null,
+        exitPendingSince: null,
+      },
     });
     expect(discord.postAttendanceMessage).not.toHaveBeenCalled();
   });

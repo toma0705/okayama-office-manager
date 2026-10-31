@@ -1,42 +1,34 @@
 /**
- * パスワードリセット実行エンドポイント
- * リセットトークンを検証してユーザーパスワードを更新
+ * POST /api/users/reset-password/[token] — パスワードの再設定
+ * メールで届いた URL のトークンを確かめて、新しいパスワードにする
  */
+import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { handleRoute, HttpError, readJson, stringField } from '@/lib/http';
 
-export async function POST(req: NextRequest, context: any) {
-  const { password } = await req.json();
-  const { params } = context;
-  const { token } = await params;
+type TokenContext = { params: Promise<{ token: string }> };
 
-  if (!password || !token) {
-    return NextResponse.json({ error: 'パスワードとトークンは必須です' }, { status: 400 });
-  }
+export const POST = handleRoute(
+  'パスワードの再設定に失敗しました',
+  async (req: NextRequest, context: TokenContext) => {
+    const password = stringField(await readJson(req), 'password');
+    const { token } = await context.params;
+    if (!password || !token) throw new HttpError(400, 'パスワードとトークンは必須です');
 
-  // リセットトークンの検証と有効期限チェック
-  const user = await prisma.user.findFirst({
-    where: {
-      resetToken: token,
-      resetTokenExpires: { gt: new Date() },
-    },
-  });
+    const user = await prisma.user.findFirst({
+      where: { resetToken: token, resetTokenExpires: { gt: new Date() } },
+    });
+    if (!user) throw new HttpError(400, 'トークンが無効または期限切れです');
 
-  if (!user) {
-    return NextResponse.json({ error: 'トークンが無効または期限切れです' }, { status: 400 });
-  }
-
-  // 新しいパスワードをハッシュ化してユーザーレコードを更新
-  const hashed = await bcrypt.hash(password, 10);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      password: hashed,
-      resetToken: null,
-      resetTokenExpires: null,
-    },
-  });
-
-  return NextResponse.json({ message: 'パスワードをリセットしました' });
-}
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: await bcrypt.hash(password, 10),
+        resetToken: null,
+        resetTokenExpires: null,
+      },
+    });
+    return NextResponse.json({ message: 'パスワードをリセットしました' });
+  },
+);
