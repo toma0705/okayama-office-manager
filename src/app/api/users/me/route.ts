@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { finalizePendingExits } from '@/lib/attendance';
+import { settlePendingAttendance } from '@/lib/attendance';
 import { getAuthenticatedUserId } from '@/lib/auth';
 import { resolveUserIconUrl } from '@/lib/storage';
 import { omitUserSecrets } from '@/lib/user';
@@ -17,10 +17,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
     }
 
-    // 猶予を過ぎた退室の保留を確定してから在室状況を返す（定期実行が止まっていても表示がずれないように）。
+    // 時間を過ぎた入退室の保留を確定してから在室状況を返す（定期実行が止まっていても表示がずれないように）。
     // 失敗しても在室状況は返す（この API の失敗はアプリではログアウト扱いになるため）
-    await finalizePendingExits().catch(error =>
-      console.warn('Failed to finalize pending exits', error),
+    await settlePendingAttendance().catch(error =>
+      console.warn('Failed to settle pending attendance', error),
     );
 
     // 認証されたユーザー情報を取得

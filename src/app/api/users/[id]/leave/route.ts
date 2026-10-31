@@ -2,6 +2,7 @@
  * 退室の保留エンドポイント（アプリのビーコン検知用）
  * ビーコンの圏外になったときに呼ばれる。すぐには退室にせず、猶予の間に戻らなければ
  * finalizePendingExits が退室を確定して Discord に通知する。
+ * 入室の保留中（確認の時間の間に圏外になった）なら、保留を取り消す（Discord には通知しない）。
  * Web の退室ボタンは、これまでどおり /exit ですぐに退室する。
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -35,6 +36,13 @@ export async function POST(req: NextRequest, context: any) {
     }
 
     if (!user.entered) {
+      // 前を通っただけなので入室にしない
+      if (user.enterPendingSince) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { enterPendingSince: null },
+        });
+      }
       return NextResponse.json({ status: 'exited' }, { status: 200 });
     }
 

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { GET as finalizeExits } from '@/app/api/cron/finalize-exits/route';
 
 jest.mock('@/lib/attendance', () => ({
-  finalizePendingExits: jest.fn().mockResolvedValue(2),
+  settlePendingAttendance: jest.fn().mockResolvedValue({ entered: 1, exited: 2 }),
 }));
 
 const attendance = jest.requireMock('@/lib/attendance') as any;
@@ -26,20 +26,20 @@ describe('GET /api/cron/finalize-exits', () => {
       }),
     );
 
-  it('正しい秘密のキーなら退室を確定する', async () => {
+  it('正しい秘密のキーなら入退室の保留を確定する', async () => {
     const res = await call('Bearer test-secret');
     const json: any = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.finalized).toBe(2);
-    expect(attendance.finalizePendingExits).toHaveBeenCalled();
+    expect(json).toEqual({ entered: 1, exited: 2 });
+    expect(attendance.settlePendingAttendance).toHaveBeenCalled();
   });
 
   it('401: キーが違う', async () => {
     const res = await call('Bearer wrong');
 
     expect(res.status).toBe(401);
-    expect(attendance.finalizePendingExits).not.toHaveBeenCalled();
+    expect(attendance.settlePendingAttendance).not.toHaveBeenCalled();
   });
 
   it('401: CRON_SECRET が未設定なら、ヘッダーがなくても通さない', async () => {
@@ -48,6 +48,6 @@ describe('GET /api/cron/finalize-exits', () => {
     const res = await call('Bearer undefined');
 
     expect(res.status).toBe(401);
-    expect(attendance.finalizePendingExits).not.toHaveBeenCalled();
+    expect(attendance.settlePendingAttendance).not.toHaveBeenCalled();
   });
 });

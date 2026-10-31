@@ -15,7 +15,7 @@ jest.mock('@/lib/auth', () => ({
 }));
 
 jest.mock('@/lib/attendance', () => ({
-  finalizePendingExits: jest.fn().mockResolvedValue(0),
+  settlePendingAttendance: jest.fn().mockResolvedValue({ entered: 0, exited: 0 }),
 }));
 
 jest.mock('@/lib/storage', () => ({
@@ -98,9 +98,9 @@ describe('GET /api/users/me', () => {
     expect(json.enteredUsers[0].iconFileName).toBe('https://example.r2.dev/entered.png');
   });
 
-  it('猶予を過ぎた退室の保留を確定してから返し、確定に失敗しても在室状況は返す', async () => {
+  it('時間を過ぎた入退室の保留を確定してから返し、確定に失敗しても在室状況は返す', async () => {
     auth.getAuthenticatedUserId.mockReturnValue(1);
-    attendance.finalizePendingExits.mockRejectedValueOnce(new Error('db down'));
+    attendance.settlePendingAttendance.mockRejectedValueOnce(new Error('db down'));
     prisma.user.findUnique.mockResolvedValue({
       id: 1,
       name: 'A',
@@ -116,7 +116,7 @@ describe('GET /api/users/me', () => {
     });
     const res = await me(req);
 
-    expect(attendance.finalizePendingExits).toHaveBeenCalled();
+    expect(attendance.settlePendingAttendance).toHaveBeenCalled();
     expect(res.status).toBe(200);
     warn.mockRestore();
   });

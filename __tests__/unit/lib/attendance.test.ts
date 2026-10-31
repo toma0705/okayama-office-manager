@@ -8,10 +8,96 @@ jest.mock('@/lib/discord', () => ({
   postAttendanceMessage: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { EXIT_GRACE_MINUTES, checkoutAllEntered, finalizePendingExits } from '@/lib/attendance';
+import {
+  ENTER_CONFIRM_MINUTES,
+  EXIT_GRACE_MINUTES,
+  checkoutAllEntered,
+  confirmPendingEnters,
+  finalizePendingExits,
+  settlePendingAttendance,
+} from '@/lib/attendance';
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const discord = jest.requireMock('@/lib/discord') as any;
+
+describe('confirmPendingEnters', () => {
+  const now = new Date('2026-10-31T10:00:00Z');
+  const pendingSince = new Date('2026-10-31T09:58:30Z');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('確認の時間を過ぎた保留だけを探す', async () => {
+    prisma.user.findMany.mockResolvedValue([]);
+
+    await confirmPendingEnters(now);
+
+    const threshold = new Date(now.getTime() - ENTER_CONFIRM_MINUTES * 60 * 1000);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { entered: false, enterPendingSince: { lte: threshold } },
+      }),
+    );
+  });
+
+  it('入室を圏内になった時刻で確定し、在室状況を添えて Discord に通知する', async () => {
+    prisma.user.findMany.mockResolvedValue([
+      { id: 1, name: '山田', enterPendingSince: pendingSince, office: { code: 'OKAYAMA' } },
+    ]);
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    const count = await confirmPendingEnters(now);
+
+    expect(count).toBe(1);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, entered: false, enterPendingSince: pendingSince },
+      data: {
+        entered: true,
+        enteredAt: pendingSince,
+        exitedAt: null,
+        exitPendingSince: null,
+        enterPendingSince: null,
+      },
+    });
+    expect(discord.postAttendanceMessage).toHaveBeenCalledWith(
+      'OKAYAMA',
+      'https://discord.com/api/webhooks/default',
+      '山田 さんが 入室 しました！',
+    );
+  });
+
+  it('同時に確定された（または取り消された）人には通知しない', async () => {
+    prisma.user.findMany.mockResolvedValue([
+      { id: 1, name: '山田', enterPendingSince: pendingSince, office: { code: 'OKAYAMA' } },
+    ]);
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    const count = await confirmPendingEnters(now);
+
+    expect(count).toBe(0);
+    expect(discord.postAttendanceMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('settlePendingAttendance', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('入室と退室の保留をまとめて確定し、それぞれの人数を返す', async () => {
+    const now = new Date('2026-10-31T10:00:00Z');
+    prisma.user.findMany
+      .mockResolvedValueOnce([
+        { id: 1, name: '山田', enterPendingSince: now, office: { code: 'OKAYAMA' } },
+      ])
+      .mockResolvedValueOnce([]);
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(settlePendingAttendance(now)).resolves.toEqual({ entered: 1, exited: 0 });
+    expect(prisma.user.findMany).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('finalizePendingExits', () => {
   const originalFetch = global.fetch;
