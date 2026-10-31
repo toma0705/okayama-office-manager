@@ -8,13 +8,11 @@ import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ALLOWED_EMAIL_DOMAIN } from '@/lib/constants';
 import { handleRoute, HttpError, requireAuth } from '@/lib/http';
 import { MAX_ICON_SIZE_BYTES, uploadUserIcon } from '@/lib/storage';
 import { officeSummarySelect, toPublicUser, withIconUrl } from '@/lib/user';
 import { compressImageToLimit, isSupportedImageType } from '@/utils/image';
-
-/** 登録できるメールアドレスのドメイン */
-const ALLOWED_EMAIL_DOMAIN = '@4nonome.com';
 
 export const GET = handleRoute('ユーザーリスト取得に失敗しました', async (req: NextRequest) => {
   requireAuth(req);

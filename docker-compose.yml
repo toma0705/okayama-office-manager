@@ -1,12 +1,17 @@
-version: '3.8'
-
+# ローカル開発・結合テスト用の Postgres（本番の DB とは別）
+#   起動: docker compose up -d
+#   停止: docker compose down（データも消すなら docker compose down -v）
 services:
-  app:
-    build: .
+  db:
+    image: postgres:16
     ports:
-      - '3000:3000'
-    env_file:
-      - .env.production
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: office_manager
     volumes:
-      - .:/app
-    command: sh -c "npm install && npm run dev"
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:

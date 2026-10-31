@@ -8,12 +8,13 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { PageContainer } from '@/Components/layouts/PageContainer';
-import { Input } from '@/Components/ui/Input';
-import { Button } from '@/Components/ui/Button';
-import { Avatar } from '@/Components/ui/Avatar';
-import type { Office } from '@/types/declaration';
-import { API_BASE_URL } from '@/lib/config';
+import { PageContainer } from '@/components/layouts/PageContainer';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
+import type { Office } from '@/types/api';
+import { apiFetch, readApiError } from '@/lib/client/api';
+import { ALLOWED_EMAIL_DOMAIN } from '@/lib/constants';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function RegisterPage() {
   useEffect(() => {
     (async () => {
       try {
-        const officesRes = await fetch(`${API_BASE_URL}/offices`);
+        const officesRes = await apiFetch('/offices');
         const officesData = await officesRes.json();
         if (Array.isArray(officesData)) {
           setOffices(officesData);
@@ -63,8 +64,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!email.endsWith('@4nonome.com')) {
-      alert('メールアドレスは @4nonome.com ドメインのみ登録可能です');
+    if (!email.endsWith(ALLOWED_EMAIL_DOMAIN)) {
+      alert(`メールアドレスは ${ALLOWED_EMAIL_DOMAIN} ドメインのみ登録可能です`);
       return;
     }
 
@@ -77,10 +78,7 @@ export default function RegisterPage() {
       formData.append('icon', iconFile);
       formData.append('password', password);
       formData.append('officeCode', officeCode);
-      const res = await fetch(`${API_BASE_URL}/users`, {
-        method: 'POST',
-        body: formData,
-      });
+      const res = await apiFetch('/users', { method: 'POST', body: formData });
       if (res.ok) {
         setErrorMessage('');
         setErrorDetail(null);
@@ -94,18 +92,7 @@ export default function RegisterPage() {
         router.push('/login');
         return;
       } else {
-        const rawBody = await res.text();
-        let parsed: unknown;
-        try {
-          parsed = rawBody ? JSON.parse(rawBody) : undefined;
-        } catch {
-          parsed = undefined;
-        }
-
-        const apiError =
-          typeof (parsed as any)?.error === 'string' ? (parsed as any).error : undefined;
-        const apiDetail =
-          typeof (parsed as any)?.detail === 'string' ? (parsed as any).detail : undefined;
+        const { error: apiError, detail: apiDetail } = await readApiError(res);
         const baseStatusInfo = `ステータス: ${res.status}${
           res.statusText ? ` ${res.statusText}` : ''
         }`;
@@ -115,8 +102,8 @@ export default function RegisterPage() {
           setErrorDetail(apiDetail ?? null);
         } else {
           const message = apiError ?? `ユーザー追加に失敗しました（${baseStatusInfo}）`;
-          const detailCandidate =
-            apiDetail ?? (apiError ? baseStatusInfo : rawBody || baseStatusInfo);
+          // JSON でない応答は、その本文が detail に入っている
+          const detailCandidate = apiDetail ?? baseStatusInfo;
 
           setErrorMessage(message);
           setErrorDetail(detailCandidate && detailCandidate !== message ? detailCandidate : null);
@@ -249,7 +236,7 @@ export default function RegisterPage() {
           />
           {iconFile && (
             <div className='mt-4 flex justify-center'>
-              <Avatar alt='icon preview' src={iconPreviewUrl} size={80} allowExternal />
+              <Avatar alt='icon preview' src={iconPreviewUrl} size={80} />
             </div>
           )}
         </label>

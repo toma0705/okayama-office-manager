@@ -60,8 +60,9 @@ prisma/*.db-journal
 # Next.js build cache (if using TurboRepo)
 .turbo/
 
-# user uploads (ignore all files in public/uploads, but keep the folder)
-public/uploads/*
-!public/uploads/.gitkeep
 
-*.zip
+*.zip# 以前のアップロード先と、ローカル開発で保存したプロフィール画像（R2 を使わないとき public/icons に保存される）
+public/uploads/
+public/icons/*
+!public/icons/close.png
+!public/icons/file.svg
