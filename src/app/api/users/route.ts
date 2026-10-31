@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { MAX_ICON_SIZE_BYTES, resolveUserIconUrl, uploadUserIcon } from '@/lib/storage';
 import { compressImageToLimit } from '@/utils/image';
 import { getAuthenticatedUserId } from '@/lib/auth';
+import { omitUserSecrets } from '@/lib/user';
 
 const withResolvedIcon = <T extends { iconFileName?: string | null }>(user: T): T => {
   if (typeof user.iconFileName !== 'string') {
@@ -196,7 +197,8 @@ export async function POST(req: NextRequest) {
         },
       },
     });
-    return NextResponse.json(withResolvedIcon(user), { status: 201 });
+    // パスワードのハッシュなどは返さない
+    return NextResponse.json(withResolvedIcon(omitUserSecrets(user)), { status: 201 });
   } catch (e) {
     console.error('ユーザー登録エラー:', e);
     return NextResponse.json(

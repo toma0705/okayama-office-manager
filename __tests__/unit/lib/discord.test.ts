@@ -2,7 +2,7 @@ jest.mock('@/lib/prisma', () => ({
   prisma: { office: { findUnique: jest.fn() } },
 }));
 
-import { buildPresenceEmbed, postAttendanceMessage } from '@/lib/discord';
+import { buildPresenceEmbed, postAttendanceMessage, postDiscordMessage } from '@/lib/discord';
 
 const prisma = jest.requireMock('@/lib/prisma').prisma as any;
 const webhook = 'https://discord.com/api/webhooks/1/token';
@@ -64,13 +64,52 @@ describe('postAttendanceMessage', () => {
     expect(body.embeds).toEqual([]);
   });
 
-  it('失敗してもエラーを投げない', async () => {
+  it('在室状況が取れなくても、入退室のメッセージは送る', async () => {
     prisma.office.findUnique.mockRejectedValue(new Error('db down'));
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     await expect(
       postAttendanceMessage('OKAYAMA', webhook, 'A さんが 入室 しました！'),
     ).resolves.toBeUndefined();
+
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.content).toBe('A さんが 入室 しました！');
+    expect(body.embeds).toEqual([]);
     warn.mockRestore();
+  });
+});
+
+describe('postDiscordMessage', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('メンションを鳴らさない設定で送る', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+
+    await postDiscordMessage(webhook, '@everyone こんにちは');
+
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe(webhook);
+    expect(JSON.parse(options.body)).toEqual({
+      content: '@everyone こんにちは',
+      embeds: [],
+      allowed_mentions: { parse: [] },
+    });
+  });
+
+  it('Discord がエラーを返しても、通信に失敗しても、エラーを投げない', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 429 });
+    await expect(postDiscordMessage(webhook, 'a')).resolves.toBeUndefined();
+
+    global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+    await expect(postDiscordMessage(webhook, 'a')).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });

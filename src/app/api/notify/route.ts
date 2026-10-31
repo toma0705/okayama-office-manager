@@ -6,7 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUserId } from '@/lib/auth';
-import { getDefaultWebhookUrl, postAttendanceMessage, resolveWebhookUrl } from '@/lib/discord';
+import {
+  getDefaultWebhookUrl,
+  postAttendanceMessage,
+  postDiscordMessage,
+  resolveWebhookUrl,
+} from '@/lib/discord';
 
 const NOTIFY_STATUSES = ['入室', '退室', 'メモを追加'];
 
@@ -57,11 +62,7 @@ export async function POST(req: NextRequest) {
   if (officeCode && (status === '入室' || status === '退室')) {
     await postAttendanceMessage(officeCode, targetWebhook, content);
   } else {
-    await fetch(targetWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    });
+    await postDiscordMessage(targetWebhook, content);
   }
 
   return NextResponse.json({ ok: true });
