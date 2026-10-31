@@ -59,7 +59,6 @@ const Home = () => {
     const token = localStorage.getItem('token');
     if (!token || !user) return;
     const prev = entered;
-    const prevNote = user.note ?? null;
     if (isPending) return;
     setIsPending(true);
     setPendingAction('enter');

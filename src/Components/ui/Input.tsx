@@ -6,12 +6,7 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   className?: string;
 };
 
-export function Input({
-  fullWidth = true,
-  style,
-  className,
-  ...props
-}: InputProps) {
+export function Input({ fullWidth = true, style, className, ...props }: InputProps) {
   return (
     <input
       {...props}

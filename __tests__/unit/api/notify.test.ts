@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 
 const mockFindUnique = jest.fn();
-jest.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: (...args: unknown[]) => mockFindUnique(...args) } } }));
+jest.mock('@/lib/prisma', () => ({
+  prisma: { user: { findUnique: (...args: unknown[]) => mockFindUnique(...args) } },
+}));
 const mockGetAuthenticatedUserId = jest.fn();
 jest.mock('@/lib/auth', () => ({
   getAuthenticatedUserId: (...args: unknown[]) => mockGetAuthenticatedUserId(...args),
@@ -121,7 +123,11 @@ describe('POST /api/notify', () => {
     sender('A', 'TOKYO');
     await notifyPost(buildRequest({ status: '入室' }));
 
-    expect(mockPostAttendance).toHaveBeenCalledWith('TOKYO', tokyoWebhook, 'A さんが 入室 しました！');
+    expect(mockPostAttendance).toHaveBeenCalledWith(
+      'TOKYO',
+      tokyoWebhook,
+      'A さんが 入室 しました！',
+    );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -154,7 +160,11 @@ describe('POST /api/notify', () => {
     sender('本人', 'TOKYO');
     await notifyPost(buildRequest({ user: '他人', officeCode: 'OKAYAMA', status: '入室' }));
 
-    expect(mockPostAttendance).toHaveBeenCalledWith('TOKYO', tokyoWebhook, '本人 さんが 入室 しました！');
+    expect(mockPostAttendance).toHaveBeenCalledWith(
+      'TOKYO',
+      tokyoWebhook,
+      '本人 さんが 入室 しました！',
+    );
   });
 
   it('400: 不正なステータス', async () => {

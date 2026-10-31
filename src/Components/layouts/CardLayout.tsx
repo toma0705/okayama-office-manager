@@ -12,9 +12,7 @@ export function CardLayout({
 }) {
   return (
     <div
-      className={`mx-auto my-16 bg-white rounded-2xl shadow-lg px-8 py-8 ${
-        className || ''
-      }`}
+      className={`mx-auto my-16 bg-white rounded-2xl shadow-lg px-8 py-8 ${className || ''}`}
       style={{ maxWidth }}
     >
       {children}
