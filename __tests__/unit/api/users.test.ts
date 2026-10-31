@@ -1,254 +1,219 @@
-import { POST as usersPost } from '@/app/api/users/route';
 import { NextRequest } from 'next/server';
+import { GET as usersGet, POST as usersPost } from '@/app/api/users/route';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-    office: {
-      findUnique: jest.fn(),
-    },
+    user: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
+    office: { findUnique: jest.fn() },
   },
 }));
-
+jest.mock('@/lib/auth', () => ({ getAuthenticatedUserId: jest.fn() }));
+jest.mock('bcryptjs', () => ({ hash: jest.fn(async () => 'hashed_pw') }));
 jest.mock('@/lib/storage', () => ({
   MAX_ICON_SIZE_BYTES: 200 * 1024,
   uploadUserIcon: jest.fn(),
-  removeUserIconByUrl: jest.fn(),
-  resolveUserIconUrl: jest.fn((value: string) =>
-    !value.startsWith('http') && !value.startsWith('/') ? `https://example.r2.dev/${value}` : value,
-  ),
+  resolveUserIconUrl: jest.fn((value: string) => `https://example.r2.dev/${value}`),
 }));
-
+// 圧縮は utils/image のテストで確かめるので、ここでは結果だけを差し替える
 jest.mock('@/utils/image', () => ({
   isSupportedImageType: jest.requireActual('@/utils/image').isSupportedImageType,
-  compressImageToLimit: jest.fn(async (buffer: Buffer, { mimeType }: any) => ({
-    buffer,
-    contentType: mimeType ?? 'image/png',
-    extension: mimeType?.split('/')?.pop() ?? 'png',
-    wasCompressed: false,
-    originalBytes: buffer.length,
-  })),
+  compressImageToLimit: jest.fn(),
 }));
 
-describe('POST /api/users', () => {
-  const originalEnv = process.env.NODE_ENV;
-  const prisma = require('@/lib/prisma').prisma;
-  const storage = require('@/lib/storage');
-  const imageUtils = require('@/utils/image');
-  const compressMock = imageUtils.compressImageToLimit as jest.Mock;
+const prisma = jest.requireMock('@/lib/prisma').prisma as any;
+const auth = jest.requireMock('@/lib/auth') as any;
+const storage = jest.requireMock('@/lib/storage') as any;
+const image = jest.requireMock('@/utils/image') as any;
 
-  const createMockFile = ({
-    size = 1,
-    type = 'image/png',
-    name = 'icon.png',
-    fail = false,
-  }: {
-    size?: number;
-    type?: string;
-    name?: string;
-    fail?: boolean;
-  } = {}) => {
-    const buildBuffer = () => {
-      const bytes = new Uint8Array(size);
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    };
-    const file = new File([new Uint8Array(size)], name, { type } as any);
-    Object.defineProperty(file, 'arrayBuffer', {
-      value: fail
-        ? jest.fn().mockRejectedValue(new Error('fail'))
-        : jest.fn().mockImplementation(() => Promise.resolve(buildBuffer())),
-      configurable: true,
-    });
-    return file as any;
+const MAX = 200 * 1024;
+const tokyo = { id: 2, code: 'TOKYO', name: '東京オフィス' };
+
+const getRequest = (query = '') =>
+  new NextRequest(`http://localhost/api/users${query}`, {
+    headers: { Authorization: 'Bearer token' },
+  });
+
+const registerForm = (overrides: Record<string, string | File | null> = {}) => {
+  const fields: Record<string, string | File | null> = {
+    name: 'Hanako',
+    email: 'hanako@4nonome.com',
+    password: 'pw',
+    officeCode: 'tokyo',
+    icon: new File([new Uint8Array(3)], 'icon.png', { type: 'image/png' }),
+    ...overrides,
   };
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) if (value !== null) form.set(key, value);
+  return { formData: async () => form } as unknown as NextRequest;
+};
 
+describe('GET /api/users', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('401: ログインしていなければ一覧を返さない', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(null);
+    expect((await usersGet(getRequest())).status).toBe(401);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it('200: 一覧を返し、アイコンを URL にする', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(1);
+    prisma.user.findMany.mockResolvedValue([
+      { id: 1, name: 'A', iconFileName: 'a.png', office: tokyo },
+    ]);
+
+    const res = await usersGet(getRequest());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      { id: 1, name: 'A', iconFileName: 'https://example.r2.dev/a.png', office: tokyo },
+    ]);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: undefined }),
+    );
+  });
+
+  it('?officeCode でオフィスを絞り込む（大文字・小文字は区別しない）', async () => {
+    auth.getAuthenticatedUserId.mockReturnValue(1);
+    prisma.user.findMany.mockResolvedValue([]);
+
+    await usersGet(getRequest('?officeCode=okayama'));
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { office: { code: 'OKAYAMA' } } }),
+    );
+  });
+});
+
+describe('POST /api/users（新規登録）', () => {
   beforeEach(() => {
-    (process.env as Record<string, string | undefined>).NODE_ENV = 'development';
-    storage.uploadUserIcon.mockReset();
-    prisma.user.findUnique.mockReset();
-    prisma.user.create.mockReset();
-    prisma.office.findUnique.mockReset();
-    compressMock.mockReset();
-    compressMock.mockImplementation(async (buffer: Buffer, { mimeType }: any) => ({
+    jest.clearAllMocks();
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.office.findUnique.mockResolvedValue(tokyo);
+    image.compressImageToLimit.mockImplementation(async (buffer: Buffer, { mimeType }: any) => ({
       buffer,
-      contentType: mimeType ?? 'image/png',
-      extension: mimeType?.split('/')?.pop() ?? 'png',
+      contentType: mimeType,
+      extension: 'png',
       wasCompressed: false,
       originalBytes: buffer.length,
     }));
-    storage.uploadUserIcon.mockResolvedValue({
-      publicUrl: 'https://example.r2.dev/default.png',
-      storagePath: 'default.png',
-    });
+    storage.uploadUserIcon.mockResolvedValue({ storagePath: 'saved.png' });
+    // DB からはパスワードのハッシュなども返ってくる
+    prisma.user.create.mockImplementation(async ({ data }: any) => ({
+      id: 10,
+      ...data,
+      resetToken: null,
+      resetTokenExpires: null,
+      office: tokyo,
+    }));
   });
 
-  afterEach(() => {
-    (process.env as Record<string, string | undefined>).NODE_ENV = originalEnv;
-    jest.clearAllMocks();
-  });
-
-  it('409: メール重複時', async () => {
-    const form = new FormData();
-    const icon = createMockFile();
-    form.set('name', 'a');
-    form.set('email', 'dup@4nonome.com');
-    form.set('password', 'pw');
-    form.set('icon', icon, icon.name);
-    form.set('officeCode', 'OKAYAMA');
-    prisma.user.findUnique = jest.fn().mockResolvedValue({});
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req);
-    expect(res.status).toBe(409);
-  });
-
-  it('500: ファイル読み込み失敗時', async () => {
-    const form = new FormData();
-    const icon = createMockFile({ fail: true });
-    form.set('name', 'a');
-    form.set('email', 'b@4nonome.com');
-    form.set('password', 'pw');
-    form.set('icon', icon, icon.name);
-    form.set('officeCode', 'TOKYO');
-    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
-    prisma.office.findUnique = jest.fn().mockResolvedValue({
-      id: 2,
-      code: 'TOKYO',
-      name: '東京オフィス',
-    });
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req);
-    expect(res.status).toBe(500);
-  });
-
-  it('500: ストレージアップロード失敗時', async () => {
-    const form = new FormData();
-    const icon = createMockFile();
-    form.set('name', 'a');
-    form.set('email', 'b@4nonome.com');
-    form.set('password', 'pw');
-    form.set('icon', icon, icon.name);
-    form.set('officeCode', 'TOKYO');
-    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
-    prisma.office.findUnique = jest.fn().mockResolvedValue({
-      id: 2,
-      code: 'TOKYO',
-      name: '東京オフィス',
-    });
-    storage.uploadUserIcon.mockRejectedValue(new Error('upload error'));
-    prisma.user.create = jest.fn();
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req);
-    expect(res.status).toBe(500);
-  });
-
-  it('400: 圧縮後も200KBを超える場合', async () => {
-    const form = new FormData();
-    const icon = createMockFile({
-      size: storage.MAX_ICON_SIZE_BYTES + 1,
-      name: 'big.png',
-    });
-    form.set('name', 'a');
-    form.set('email', 'b@4nonome.com');
-    form.set('password', 'pw');
-    form.set('icon', icon, icon.name);
-    form.set('officeCode', 'TOKYO');
-    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
-    prisma.office.findUnique = jest
-      .fn()
-      .mockResolvedValue({ id: 2, code: 'TOKYO', name: '東京オフィス' });
-
-    compressMock.mockResolvedValueOnce({
-      buffer: Buffer.alloc(storage.MAX_ICON_SIZE_BYTES + 10),
-      contentType: 'image/webp',
-      extension: 'webp',
-      wasCompressed: true,
-      originalBytes: storage.MAX_ICON_SIZE_BYTES + 1,
-    });
-
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req);
-    expect(res.status).toBe(400);
-  });
-
-  it('201: 大きな画像でも圧縮してアップロード', async () => {
-    const form = new FormData();
-    const icon = createMockFile({
-      size: storage.MAX_ICON_SIZE_BYTES + 5000,
-      name: 'huge.png',
-    });
-    form.set('name', 'a');
-    form.set('email', 'c@4nonome.com');
-    form.set('password', 'pw');
-    form.set('icon', icon, icon.name);
-    form.set('officeCode', 'TOKYO');
-    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
-    prisma.office.findUnique = jest
-      .fn()
-      .mockResolvedValue({ id: 2, code: 'TOKYO', name: '東京オフィス' });
-    prisma.user.create = jest.fn().mockResolvedValue({
-      id: 1,
-      name: 'a',
-      email: 'c@4nonome.com',
-      officeId: 2,
-      iconFileName: 'icon.webp',
-      office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
-    });
-
-    compressMock.mockResolvedValueOnce({
-      buffer: Buffer.alloc(storage.MAX_ICON_SIZE_BYTES - 10),
-      contentType: 'image/webp',
-      extension: 'webp',
-      wasCompressed: true,
-      originalBytes: storage.MAX_ICON_SIZE_BYTES + 5000,
-    });
-
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req);
+  it('201: 登録し、パスワードのハッシュなどは返さない', async () => {
+    const res = await usersPost(registerForm());
     expect(res.status).toBe(201);
+
+    const json = await res.json();
+    expect(json).toEqual({
+      id: 10,
+      name: 'Hanako',
+      email: 'hanako@4nonome.com',
+      iconFileName: 'https://example.r2.dev/saved.png',
+      officeId: 2,
+      office: tokyo,
+    });
+    expect(prisma.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ password: 'hashed_pw' }) }),
+    );
+  });
+
+  it('画像の拡張子はファイル名ではなく形式から決める', async () => {
+    image.compressImageToLimit.mockResolvedValueOnce({
+      buffer: Buffer.alloc(MAX - 10),
+      contentType: 'image/webp',
+      extension: 'webp',
+      wasCompressed: true,
+      originalBytes: MAX + 5000,
+    });
+    await usersPost(registerForm());
+
     expect(storage.uploadUserIcon).toHaveBeenCalledWith(
       expect.objectContaining({
         contentType: 'image/webp',
-        buffer: expect.any(Buffer),
         fileName: expect.stringMatching(/\.webp$/),
       }),
     );
   });
 
-  it('500: prisma.user.create失敗時', async () => {
-    const form = new FormData();
-    const icon = createMockFile();
-    form.set('name', 'a');
-    form.set('email', 'b@4nonome.com');
-    form.set('password', 'pw');
-    form.set('icon', icon, icon.name);
-    form.set('officeCode', 'TOKYO');
-    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
-    prisma.office.findUnique = jest.fn().mockResolvedValue({
-      id: 2,
-      code: 'TOKYO',
-      name: '東京オフィス',
-    });
-    storage.uploadUserIcon.mockResolvedValue({
-      publicUrl: 'https://example.r2.dev/icon.png',
-      storagePath: 'icon.png',
-    });
-    prisma.user.create = jest.fn().mockRejectedValue(new Error('fail'));
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req);
-    expect(res.status).toBe(500);
+  it.each([
+    ['名前', { name: null }],
+    ['メールアドレス', { email: null }],
+    ['パスワード', { password: null }],
+    ['オフィス', { officeCode: null }],
+    ['画像', { icon: null }],
+  ])('400: %sがない', async (_label, overrides) => {
+    expect((await usersPost(registerForm(overrides))).status).toBe(400);
+    expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it('400: 必須項目不足', async () => {
-    const form = new FormData();
-    const req = { formData: async () => form } as any;
-    const res = await usersPost(req as NextRequest);
+  it('400: フォームとして読めない', async () => {
+    const req = {
+      formData: async () => Promise.reject(new Error('bad')),
+    } as unknown as NextRequest;
+    expect((await usersPost(req)).status).toBe(400);
+  });
+
+  it('400: 団体のドメイン以外のメールアドレス', async () => {
+    const res = await usersPost(registerForm({ email: 'mika@example.com' }));
     expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain('@4nonome.com');
   });
 
-  // 画像アップロードやストレージへの保存の正常系・異常系は、
-  // 実際の通信をモックしてテストする必要があるため、
-  // ここでは省略または別途モック実装が必要です。
+  it('409: メールアドレスが登録済み', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 1 });
+    expect((await usersPost(registerForm())).status).toBe(409);
+  });
+
+  it('400: 存在しないオフィスなら、画像を保存せずに断る', async () => {
+    prisma.office.findUnique.mockResolvedValue(null);
+    const res = await usersPost(registerForm({ officeCode: 'OSAKA' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('officeCode が不正です');
+    expect(storage.uploadUserIcon).not.toHaveBeenCalled();
+  });
+
+  it.each(['image/svg+xml', 'text/html', 'application/octet-stream'])(
+    '400: 画像として受け付けない形式（%s）は保存しない',
+    async type => {
+      const icon = new File(['<svg onload="alert(1)"/>'], 'x.png', { type });
+      expect((await usersPost(registerForm({ icon }))).status).toBe(400);
+      expect(storage.uploadUserIcon).not.toHaveBeenCalled();
+    },
+  );
+
+  it('400: 圧縮しても上限を超える画像は、超えた容量を伝える', async () => {
+    image.compressImageToLimit.mockResolvedValueOnce({
+      buffer: Buffer.alloc(MAX + 10),
+      contentType: 'image/webp',
+      extension: 'webp',
+      wasCompressed: true,
+      originalBytes: MAX + 1,
+    });
+    const res = await usersPost(registerForm());
+    expect(res.status).toBe(400);
+    expect((await res.json()).detail).toContain('上限 200KB');
+  });
+
+  it('500: 画像の保存に失敗したら、ユーザーを作らない', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    storage.uploadUserIcon.mockRejectedValue(new Error('upload error'));
+    const res = await usersPost(registerForm());
+    expect(res.status).toBe(500);
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('500: DB の保存に失敗したら、詳細を返さない', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    prisma.user.create.mockRejectedValue(new Error('unique constraint'));
+    const res = await usersPost(registerForm());
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toContain('unique constraint');
+  });
 });
