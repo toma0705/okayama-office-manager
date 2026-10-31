@@ -1,120 +1,89 @@
 #!/usr/bin/env node
+/**
+ * openapi/openapi.yaml から TypeScript の API クライアント（office-manager-api-client）を生成する。
+ *
+ *   npm run openapi:generate                   … 隣のフォルダ ../api-client に出力する
+ *   npm run openapi:generate -- --out <フォルダ> … 出力先を指定する（GitHub Actions で使う）
+ *
+ * Java が必要。生成器のバージョンは openapitools.json で固定している。
+ * パッケージのバージョンは仕様の info.version を使う。
+ */
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parse } from 'yaml';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const specPath = path.join(webRoot, 'openapi', 'openapi.yaml');
 
-// ⭐ 基準ディレクトリを「office-manager」のルートに設定
-const workspaceRoot = path.resolve(__dirname, '../..');
+const outIndex = process.argv.indexOf('--out');
+const outputPath = path.resolve(
+  outIndex >= 0 ? process.argv[outIndex + 1] : path.join(webRoot, '..', 'api-client'),
+);
 
-// 絶対パスをそのまま使う（CLIラッパーが裏で良しなに処理してくれます！）
-const absoluteSpecPath = path.join(workspaceRoot, 'web', 'openapi', 'openapi.yaml');
-const absoluteOutputPath = path.join(workspaceRoot, 'api-client');
-
-const generatorCli = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const additionalProps = [
-  'supportsES6=true',
-  'modelPropertyNaming=camelCase',
-  'withSeparateModelsAndApi=true',
-  'npmName=@office-manager/api-client',
-  'npmVersion=0.1.0',
-  'typescriptThreePlus=true',
-].join(',');
+const PACKAGE_NAME = '@office-manager/api-client';
+const REPOSITORY_URL = 'https://github.com/toma0705/office-manager-api-client.git';
 
 async function main() {
-  await runOpenApiGenerator();
-  await finalizePackageJson();
-  await ensureBuildArtifacts();
-  console.log('✅ OpenAPI TypeScript client generated at ' + absoluteOutputPath);
+  const spec = parse(await fs.readFile(specPath, 'utf8'));
+  const version = spec.info.version;
+
+  // 仕様から消えた型やエンドポイントのファイルが残らないよう、生成物を消してから作る
+  await fs.rm(path.join(outputPath, 'src'), { recursive: true, force: true });
+  await fs.rm(path.join(outputPath, 'docs'), { recursive: true, force: true });
+
+  await run(
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    [
+      'openapi-generator-cli',
+      'generate',
+      '-g',
+      'typescript-fetch',
+      '-i',
+      specPath,
+      '-o',
+      outputPath,
+      '--additional-properties',
+      [
+        'supportsES6=true',
+        'modelPropertyNaming=camelCase',
+        'withSeparateModelsAndApi=true',
+        `npmName=${PACKAGE_NAME}`,
+        `npmVersion=${version}`,
+        'typescriptThreePlus=true',
+      ].join(','),
+    ],
+    // openapitools.json（生成器のバージョン）を読ませるため、web のフォルダで実行する
+    { cwd: webRoot },
+  );
+
+  await fixPackageJson();
+  console.log(`✅ ${PACKAGE_NAME}@${version} を ${outputPath} に生成しました`);
 }
 
-async function runOpenApiGenerator() {
-  const args = [
-    '--package=@openapitools/openapi-generator-cli',
-    'openapi-generator-cli',
-    'generate',
-    '-g',
-    'typescript-fetch',
-    '-i',
-    absoluteSpecPath, // 変な書き換えをせず、そのまま渡す
-    '-o',
-    absoluteOutputPath, // ここもそのまま渡す
-    '--additional-properties',
-    additionalProps,
-    '--skip-validate-spec',
-  ];
-
-  await exec(generatorCli, args, {
-    cwd: workspaceRoot, // 実行ディレクトリをプロジェクトルートに固定
-    env: { ...process.env, OPENAPI_GENERATOR_SKIP_INSTALL_CHECK: 'true' },
-  });
-}
-
-async function finalizePackageJson() {
-  const pkgPath = path.join(absoluteOutputPath, 'package.json');
-  const defaultPkg = {
-    name: '@office-manager/api-client',
-    version: '0.1.0',
-    private: false,
-    sideEffects: false,
-    main: './dist/index.js',
-    module: './dist/esm/index.js',
-    types: './dist/index.d.ts',
-    files: ['dist', 'README.md'],
-    scripts: {
-      build: 'tsc -p tsconfig.json && tsc -p tsconfig.esm.json',
-      clean: 'rimraf dist',
-    },
-    dependencies: {
-      tslib: '^2.6.2',
-    },
-    devDependencies: {
-      typescript: '^5.3.3',
-      rimraf: '^5.0.0',
-    },
-  };
-
-  let pkg = defaultPkg;
-  try {
-    const raw = await fs.readFile(pkgPath, 'utf8');
-    pkg = { ...defaultPkg, ...JSON.parse(raw) };
-    pkg.files = Array.from(new Set([...(pkg.files ?? []), 'dist', 'README.md']));
-    pkg.scripts = { ...defaultPkg.scripts, ...(pkg.scripts ?? {}) };
-    pkg.dependencies = { ...defaultPkg.dependencies, ...(pkg.dependencies ?? {}) };
-    pkg.devDependencies = { ...defaultPkg.devDependencies, ...(pkg.devDependencies ?? {}) };
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
-
+/** 生成された package.json の説明やリポジトリを、このプロジェクトのものにする */
+async function fixPackageJson() {
+  const pkgPath = path.join(outputPath, 'package.json');
+  const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
+  pkg.description = '入退室管理アプリの API クライアント（web/openapi/openapi.yaml から自動生成）';
+  pkg.author = 'toma0705';
+  pkg.repository = { type: 'git', url: REPOSITORY_URL };
   await fs.writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
-async function ensureBuildArtifacts() {
-  const npmIgnorePath = path.join(absoluteOutputPath, '.npmignore');
-  try {
-    await fs.access(npmIgnorePath);
-  } catch {
-    await fs.writeFile(npmIgnorePath, 'node_modules\nnpm-debug.log\n');
-  }
-}
-
-function exec(command, args, options) {
+function run(command, args, options) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: 'inherit', ...options });
     child.on('error', reject);
     child.on('exit', code =>
-      code === 0
-        ? resolve()
-        : reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`)),
+      code === 0 ? resolve() : reject(new Error(`${command} ${args.join(' ')} が失敗しました`)),
     );
   });
 }
 
 main().catch(error => {
-  console.error('❌ Failed to generate OpenAPI TypeScript client');
+  console.error('❌ API クライアントの生成に失敗しました');
   console.error(error);
   process.exit(1);
 });
