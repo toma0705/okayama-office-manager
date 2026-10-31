@@ -9,11 +9,11 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PageContainer } from '@/Components/layouts/PageContainer';
-import { Avatar } from '@/Components/ui/Avatar';
-import type { Office, User } from '@/types/declaration';
-import { API_BASE_URL } from '@/lib/config';
-import { Button } from '@/Components/ui/Button';
+import { PageContainer } from '@/components/layouts/PageContainer';
+import { Avatar } from '@/components/ui/Avatar';
+import type { Office, User } from '@/types/api';
+import { apiFetch, authToken } from '@/lib/client/api';
+import { Button } from '@/components/ui/Button';
 
 export default function UsersPage() {
   const router = useRouter();
@@ -28,21 +28,18 @@ export default function UsersPage() {
   }, [users, selectedOffice]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!authToken.get()) {
       router.push('/login');
       return;
     }
     (async () => {
       try {
         const [usersRes, officesRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/offices`),
+          apiFetch('/users'),
+          apiFetch('/offices'),
         ]);
         if (usersRes.status === 401) {
-          localStorage.removeItem('token');
+          authToken.clear();
           router.push('/login');
           return;
         }

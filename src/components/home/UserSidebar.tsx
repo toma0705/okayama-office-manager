@@ -1,7 +1,7 @@
 'use client';
 import Image from 'next/image';
-import { Avatar } from '@/Components/ui/Avatar';
-import type { User } from '@/types/declaration';
+import { Avatar } from '@/components/ui/Avatar';
+import type { User } from '@/types/api';
 
 type Props = {
   user: User | null;

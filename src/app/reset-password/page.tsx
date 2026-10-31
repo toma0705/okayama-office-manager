@@ -7,9 +7,10 @@
  * - Auth: 公開
  */
 import { useState } from 'react';
-import { CardLayout } from '@/Components/layouts/CardLayout';
-import { Input } from '@/Components/ui/Input';
-import { Button } from '@/Components/ui/Button';
+import { CardLayout } from '@/components/layouts/CardLayout';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { readApiError, sendJson } from '@/lib/client/api';
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState('');
@@ -20,17 +21,13 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
-    const res = await fetch('/api/users/reset-password-request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
+    const res = await sendJson('/users/reset-password-request', 'POST', { email });
     setLoading(false);
     if (res.ok) {
       setMessage('パスワード再設定用のメールを送信しました。メールをご確認ください。');
     } else {
-      const err = await res.json().catch(() => ({}));
-      setMessage(err.error || '送信に失敗しました');
+      const { error } = await readApiError(res);
+      setMessage(error || '送信に失敗しました');
     }
   };
 

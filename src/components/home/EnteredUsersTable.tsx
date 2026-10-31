@@ -1,8 +1,8 @@
 'use client';
-import { Avatar } from '@/Components/ui/Avatar';
-import type { User } from '@/types/declaration';
+import { Avatar } from '@/components/ui/Avatar';
+import type { User } from '@/types/api';
 import { formatDateTime } from '@/utils/date';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 type Props = {
   me: User | null;
@@ -11,15 +11,17 @@ type Props = {
 };
 
 export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
-  const [notes, setNotes] = useState<Record<number, string>>({});
+  // 編集中の行と、その行に入力中のメモ
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
 
-  useEffect(() => {
-    setNotes(Object.fromEntries(users.map(u => [u.id, u.note ?? ''])));
-  }, [users]);
+  const startEditing = (user: User) => {
+    setDraft(user.note ?? '');
+    setEditingId(user.id);
+  };
 
   const handleSave = async (id: number) => {
-    await onSaveNote(id, notes[id] ?? '');
+    await onSaveNote(id, draft);
     setEditingId(null);
   };
 
@@ -52,8 +54,8 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
                 {editingId === u.id && me?.id === u.id ? (
                   <>
                     <textarea
-                      value={notes[u.id] ?? ''}
-                      onChange={e => setNotes(p => ({ ...p, [u.id]: e.target.value }))}
+                      value={draft}
+                      onChange={e => setDraft(e.target.value)}
                       rows={1}
                       className='w-full rounded-md border border-gray-300 p-3 text-lg resize-y box-border'
                       placeholder='メモを残す'
@@ -70,7 +72,7 @@ export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
                     <span className='text-lg'>{u.note}</span>
                     {me?.id === u.id && (
                       <button
-                        onClick={() => setEditingId(u.id)}
+                        onClick={() => startEditing(u)}
                         className='rounded-md bg-blue-600 text-white px-3 py-2'
                       >
                         編集

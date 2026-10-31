@@ -8,140 +8,93 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { User } from '@/types/declaration';
-import { PageContainer } from '@/Components/layouts/PageContainer';
-import { Avatar } from '@/Components/ui/Avatar';
-import { StatusTitle } from '@/Components/home/StatusTitle';
-import { EnterExitButtons } from '@/Components/home/EnterExitButtons';
-import { EnteredUsersTable } from '@/Components/home/EnteredUsersTable';
-import { UserSidebar } from '@/Components/home/UserSidebar';
-import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
+import type { User } from '@/types/api';
+import { PageContainer } from '@/components/layouts/PageContainer';
+import { Avatar } from '@/components/ui/Avatar';
+import { StatusTitle } from '@/components/home/StatusTitle';
+import { EnterExitButtons } from '@/components/home/EnterExitButtons';
+import { EnteredUsersTable } from '@/components/home/EnteredUsersTable';
+import { UserSidebar } from '@/components/home/UserSidebar';
+import { apiFetch, authToken, notify, sendJson } from '@/lib/client/api';
+
+type AttendanceAction = 'enter' | 'exit';
 
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [entered, setEntered] = useState(false);
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-  const [pendingAction, setPendingAction] = useState<null | 'enter' | 'exit'>(null);
-  const [apiSuccess, setApiSuccess] = useState(false);
+  // 入退室の記録中は、ボタンを押せないようにする
+  const [pendingAction, setPendingAction] = useState<AttendanceAction | null>(null);
   const router = useRouter();
+  const entered = Boolean(user?.entered);
+
+  const logout = useCallback(() => {
+    authToken.clear();
+    router.push('/login');
+  }, [router]);
 
   const fetchUserAndEnteredUsers = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!authToken.get()) {
       router.push('/login');
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch('/users/me');
       if (!res.ok) throw new Error('failed to fetch');
       const data = await res.json();
       setUser(data.user);
       setEnteredUsers(data.enteredUsers || []);
-      setEntered(Boolean(data.user?.entered));
     } catch {
-      localStorage.removeItem('token');
-      router.push('/login');
+      logout();
     }
-  }, [router]);
+  }, [logout, router]);
 
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       await fetchUserAndEnteredUsers();
-    })();
+    };
+    void load();
   }, [fetchUserAndEnteredUsers]);
 
-  const onEnter = async () => {
-    const token = localStorage.getItem('token');
-    if (!token || !user) return;
-    const prev = entered;
-    if (isPending) return;
-    setIsPending(true);
-    setPendingAction('enter');
-    setEntered(true);
+  const changeAttendance = async (action: AttendanceAction) => {
+    if (!user || pendingAction) return;
+    const previousUser = user;
+    setPendingAction(action);
+    // 押した直後に表示を切り替え、失敗したら元に戻す
+    setUser(
+      action === 'enter' ? { ...user, entered: true } : { ...user, entered: false, note: null },
+    );
     try {
-      const res = await fetch(`${API_BASE_URL}/users/${user.id}/enter`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('enter failed');
-
-      await fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          user: user.name,
-          status: '入室',
-          officeCode: user.office?.code ?? null,
-        }),
-      });
-
-      setApiSuccess(true);
-      fetchUserAndEnteredUsers();
-    } catch (e) {
-      setEntered(prev);
-      setIsPending(false);
+      const res = await apiFetch(`/users/${user.id}/${action}`, { method: 'POST' });
+      if (!res.ok) throw new Error(`${action} failed`);
+      await notify(action === 'enter' ? '入室' : '退室');
+      await fetchUserAndEnteredUsers();
+    } catch {
+      setUser(previousUser);
+    } finally {
       setPendingAction(null);
-      setApiSuccess(false);
     }
   };
 
-  const onExit = async () => {
-    const token = localStorage.getItem('token');
-    if (!token || !user) return;
-    const prev = entered;
-    const prevNote = user.note ?? null;
-    if (isPending) return;
-    setIsPending(true);
-    setPendingAction('exit');
-    setEntered(false);
-    setUser(prevUser => (prevUser ? { ...prevUser, entered: false, note: null } : prevUser));
-    try {
-      const res = await fetch(`${API_BASE_URL}/users/${user.id}/exit`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('exit failed');
-
-      await fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          user: user.name,
-          status: '退室',
-          officeCode: user.office?.code ?? null,
-        }),
-      });
-
-      setApiSuccess(true);
-      fetchUserAndEnteredUsers();
-    } catch (e) {
-      setEntered(prev);
-      setUser(prevUser => (prevUser ? { ...prevUser, entered: prev, note: prevNote } : prevUser));
-      setIsPending(false);
-      setPendingAction(null);
-      setApiSuccess(false);
-    }
+  const deleteAccount = async () => {
+    if (!user) return;
+    if (!window.confirm('本当にアカウントを削除しますか？この操作は元に戻せません。')) return;
+    await apiFetch(`/users/${user.id}`, { method: 'DELETE' });
+    logout();
   };
 
-  useEffect(() => {
-    if (!isPending || !user || !pendingAction) return;
-    const exists = enteredUsers.some(u => u.id === user.id);
-    if (pendingAction === 'enter' && apiSuccess && exists) {
-      setIsPending(false);
-      setPendingAction(null);
-      setApiSuccess(false);
+  const saveNote = async (userId: number, note: string) => {
+    const response = await sendJson(`/users/${userId}`, 'PATCH', { note });
+    if (!response.ok) throw new Error('Failed to save note');
+
+    // 自分のメモが変わったときだけ Discord に流す
+    const trimmedNote = note.trim();
+    if (user && user.id === userId && trimmedNote && trimmedNote !== (user.note ?? '').trim()) {
+      await notify('メモを追加', trimmedNote);
     }
-    if (pendingAction === 'exit' && apiSuccess && !exists) {
-      setIsPending(false);
-      setPendingAction(null);
-      setApiSuccess(false);
-    }
-  }, [isPending, pendingAction, enteredUsers, user, apiSuccess]);
+    await fetchUserAndEnteredUsers();
+  };
 
   return (
     <PageContainer className='items-start'>
@@ -168,22 +121,8 @@ const Home = () => {
         <UserSidebar
           user={user}
           onClose={() => setSidebarOpen(false)}
-          onLogout={() => {
-            localStorage.removeItem('token');
-            router.push('/login');
-          }}
-          onDelete={async () => {
-            if (!user) return;
-            if (!window.confirm('本当にアカウントを削除しますか？この操作は元に戻せません。'))
-              return;
-            await fetch(`/api/users/${user.id}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-            });
-            localStorage.removeItem('token');
-            await fetchUserAndEnteredUsers();
-            router.push('/login');
-          }}
+          onLogout={logout}
+          onDelete={deleteAccount}
         />
       )}
 
@@ -194,7 +133,12 @@ const Home = () => {
       )}
 
       <StatusTitle entered={entered} />
-      <EnterExitButtons entered={entered} onEnter={onEnter} onExit={onExit} disabled={isPending} />
+      <EnterExitButtons
+        entered={entered}
+        onEnter={() => changeAttendance('enter')}
+        onExit={() => changeAttendance('exit')}
+        disabled={pendingAction !== null}
+      />
       <div className='mb-6'>
         <Link
           href='/users'
@@ -203,44 +147,7 @@ const Home = () => {
           すべてのユーザーを見る
         </Link>
       </div>
-      <EnteredUsersTable
-        me={user}
-        users={enteredUsers}
-        onSaveNote={async (userId, note) => {
-          const token = localStorage.getItem('token');
-          const response = await fetch(`/api/users/${userId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ note }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to save note');
-          }
-
-          const trimmedNote = note.trim();
-          const prevNote = user?.note ?? '';
-
-          if (user && user.id === userId) {
-            setUser(prevUser => (prevUser ? { ...prevUser, note } : prevUser));
-
-            if (trimmedNote && trimmedNote !== prevNote.trim()) {
-              await fetch('/api/notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                  user: user.name,
-                  status: 'メモを追加',
-                  officeCode: user.office?.code ?? null,
-                  note: trimmedNote,
-                }),
-              });
-            }
-          }
-
-          await fetchUserAndEnteredUsers();
-        }}
-      />
+      <EnteredUsersTable me={user} users={enteredUsers} onSaveNote={saveNote} />
     </PageContainer>
   );
 };

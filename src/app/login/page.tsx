@@ -3,14 +3,14 @@
  * ログインページ
  * - Path: /login
  * - 概要: メール・パスワードでログインし、JWT を保存してホームに遷移
- * - API: POST /api/users/login （成功時: { token } を localStorage に保存）
+ * - API: POST /api/users/login（成功したらトークンを localStorage に保存）
  * - Auth: 公開（未ログイン利用）
  */
-import { PageContainer } from '@/Components/layouts/PageContainer';
-import { Input } from '@/Components/ui/Input';
-import { Button } from '@/Components/ui/Button';
-import { LinkButton } from '@/Components/ui/LinkButton';
-import { API_BASE_URL } from '@/lib/config';
+import { PageContainer } from '@/components/layouts/PageContainer';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { authToken, readApiError, sendJson } from '@/lib/client/api';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
@@ -21,8 +21,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) router.replace('/');
+    if (authToken.get()) router.replace('/');
   }, [router]);
 
   const handleLogin = async (event?: FormEvent<HTMLFormElement>) => {
@@ -30,21 +29,17 @@ export default function LoginPage() {
     if (loading) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim(),
-        }),
+      const res = await sendJson('/users/login', 'POST', {
+        email: email.trim(),
+        password: password.trim(),
       });
       if (res.ok) {
         const { token } = await res.json();
-        localStorage.setItem('token', token);
+        authToken.set(token);
         router.push('/');
       } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error || 'メールアドレスまたはパスワードが違います');
+        const { error } = await readApiError(res);
+        alert(error || 'メールアドレスまたはパスワードが違います');
       }
     } finally {
       setLoading(false);

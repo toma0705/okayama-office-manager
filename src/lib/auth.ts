@@ -1,6 +1,16 @@
 import type { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
-import type { JwtPayload } from '@/types/declaration';
+
+/** ログイン時に発行する JWT の中身（/api/users/login） */
+export type JwtPayload = {
+  id: number;
+  name: string;
+  iconFileName: string;
+  officeId: number;
+  officeCode: string;
+  iat?: number;
+  exp?: number;
+};
 
 /**
  * JWT の署名鍵。未設定のまま固定の値で署名すると誰でもトークンを偽造できるため、

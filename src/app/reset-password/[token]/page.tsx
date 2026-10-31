@@ -8,9 +8,10 @@
  */
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { CardLayout } from '@/Components/layouts/CardLayout';
-import { Input } from '@/Components/ui/Input';
-import { Button } from '@/Components/ui/Button';
+import { CardLayout } from '@/components/layouts/CardLayout';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { readApiError, sendJson } from '@/lib/client/api';
 
 export default function ResetPasswordTokenPage() {
   const [password, setPassword] = useState('');
@@ -23,17 +24,13 @@ export default function ResetPasswordTokenPage() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
-    const res = await fetch(`/api/users/reset-password/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
+    const res = await sendJson(`/users/reset-password/${token}`, 'POST', { password });
     setLoading(false);
     if (res.ok) {
       setMessage('パスワードがリセットされました。ログイン画面から再度ログインしてください。');
     } else {
-      const err = await res.json().catch(() => ({}));
-      setMessage(err.error || 'リセットに失敗しました');
+      const { error } = await readApiError(res);
+      setMessage(error || 'リセットに失敗しました');
     }
   };
 
