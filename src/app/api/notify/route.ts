@@ -1,69 +1,54 @@
 /**
- * 通知配信 API
- * POST: 入退室イベントを Discord Webhook に転送する（入退室は在室状況を添えて送る）
- * ログイン用トークンが必要。名前とオフィスは送信内容ではなくトークンのユーザーから決める（なりすまし防止）
+ * POST /api/notify — Discord に通知する（入室・退室・メモの追加）
+ * 入退室は、そのときの在室状況を添えて 1 通で送る。メモはメモだけ送る。
+ * 名前とオフィスは送信内容ではなくトークンのユーザーから決める（なりすまし防止）。
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedUserId } from '@/lib/auth';
 import {
   getDefaultWebhookUrl,
   postAttendanceMessage,
   postDiscordMessage,
   resolveWebhookUrl,
 } from '@/lib/discord';
+import { handleRoute, HttpError, readJson, requireAuth } from '@/lib/http';
 
 const NOTIFY_STATUSES = ['入室', '退室', 'メモを追加'];
 
-export async function POST(req: NextRequest) {
-  let userId: number | null = null;
-  try {
-    userId = getAuthenticatedUserId(req);
-  } catch {
-    userId = null;
-  }
-  if (!userId) {
-    return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
-  }
+export const POST = handleRoute('通知に失敗しました', async (req: NextRequest) => {
+  const userId = requireAuth(req);
 
   const defaultWebhook = getDefaultWebhookUrl();
-
   if (!defaultWebhook) {
-    return NextResponse.json(
-      {
-        error:
-          'DISCORD_WEBHOOK_URL_DEFAULT または DISCORD_WEBHOOK_URL_OKAYAMA が設定されていません',
-      },
-      { status: 500 },
+    throw new HttpError(
+      500,
+      'DISCORD_WEBHOOK_URL_DEFAULT または DISCORD_WEBHOOK_URL_OKAYAMA が設定されていません',
     );
   }
 
-  const { status, note } = await req.json();
-  if (!NOTIFY_STATUSES.includes(status)) {
-    return NextResponse.json({ error: '不正なステータスです' }, { status: 400 });
+  const { status, note } = await readJson(req);
+  if (typeof status !== 'string' || !NOTIFY_STATUSES.includes(status)) {
+    throw new HttpError(400, '不正なステータスです');
   }
 
   const sender = await prisma.user.findUnique({
     where: { id: userId },
     select: { name: true, office: { select: { code: true } } },
   });
-  if (!sender) {
-    return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
-  }
-  const user = sender.name;
+  if (!sender) throw new HttpError(404, 'ユーザーが見つかりません');
+
   const officeCode = sender.office.code;
-
-  const targetWebhook = resolveWebhookUrl(officeCode, defaultWebhook);
+  const webhookUrl = resolveWebhookUrl(officeCode, defaultWebhook);
   const trimmedNote = typeof note === 'string' ? note.trim() : '';
-  const attendanceMessage = `${user} さんが ${status} しました！`;
-  const content = trimmedNote ? `${user} さんのメモ: ${trimmedNote}` : attendanceMessage;
+  const content = trimmedNote
+    ? `${sender.name} さんのメモ: ${trimmedNote}`
+    : `${sender.name} さんが ${status} しました！`;
 
-  // 入退室のときは、そのときの在室状況を添えて 1 通で送る（メモ追加はメモだけ）
-  if (officeCode && (status === '入室' || status === '退室')) {
-    await postAttendanceMessage(officeCode, targetWebhook, content);
+  if (status === 'メモを追加') {
+    await postDiscordMessage(webhookUrl, content);
   } else {
-    await postDiscordMessage(targetWebhook, content);
+    await postAttendanceMessage(officeCode, webhookUrl, content);
   }
 
   return NextResponse.json({ ok: true });
-}
+});

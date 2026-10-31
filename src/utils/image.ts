@@ -10,6 +10,10 @@ const mimeToExtensionMap: Record<string, string> = {
   'image/heif': 'heif',
 };
 
+/** プロフィール画像として受け付ける形式（SVG などスクリプトを含められる形式は受け付けない） */
+export const isSupportedImageType = (mimeType: string | null | undefined) =>
+  Boolean(mimeType && mimeType.toLowerCase() in mimeToExtensionMap);
+
 const DEFAULT_OUTPUT_MIME = 'image/webp';
 const DEFAULT_OUTPUT_EXTENSION = 'webp';
 

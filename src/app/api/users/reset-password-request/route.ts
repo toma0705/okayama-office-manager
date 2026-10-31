@@ -1,65 +1,33 @@
-import { prisma } from '@/lib/prisma';
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import nodemailer from 'nodemailer';
-
-// パスワードリセットトークンの有効期限（30分）
-const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000;
-
-// SMTP標準ポート
-const SMTP_DEFAULT_PORT = 587;
-
 /**
- * パスワードリセット申請エンドポイント
- * リセットトークンを生成してユーザーにリセットメールを送信
+ * POST /api/users/reset-password-request — パスワード再設定の申請
+ * 再設定用のトークンを作り、再設定ページの URL をメールで送る（30 分有効）
  */
-export async function POST(req: NextRequest) {
-  const { email } = await req.json();
+import crypto from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { handleRoute, HttpError, readJson, stringField } from '@/lib/http';
+import { sendPasswordResetMail } from '@/lib/mail';
 
-  if (!email) {
-    return NextResponse.json({ error: 'メールアドレスは必須です' }, { status: 400 });
-  }
+const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000;
+const SENT_MESSAGE = 'パスワード再設定メールを送信しました';
 
-  const user = await prisma.user.findUnique({ where: { email } });
+export const POST = handleRoute(
+  'パスワード再設定メールの送信に失敗しました',
+  async (req: NextRequest) => {
+    const email = stringField(await readJson(req), 'email');
+    if (!email) throw new HttpError(400, 'メールアドレスは必須です');
 
-  // ユーザーが存在しない場合でも成功メッセージを返す
-  if (!user) {
-    return NextResponse.json({
-      message: 'パスワード再設定メールを送信しました',
+    // 登録されていないメールアドレスでも同じ応答にする（登録の有無を知られないように）
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return NextResponse.json({ message: SENT_MESSAGE });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken: token, resetTokenExpires: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS) },
     });
-  }
 
-  // セキュアなランダムトークンを生成（32バイト）
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
-
-  // データベースにリセットトークンを保存
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { resetToken: token, resetTokenExpires: expires },
-  });
-
-  // パスワードリセットメール送信
-  const resetUrl = `${process.env.NEXT_PUBLIC_URL}/reset-password/${token}`;
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || SMTP_DEFAULT_PORT,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
-    subject: '【Office Manager】パスワード再設定のご案内',
-    text: `下記URLから30分以内にパスワードを再設定してください
-${resetUrl}`,
-    html: `<p>下記URLから30分以内にパスワードを再設定してください。</p><p><a href='${resetUrl}'>${resetUrl}</a></p>`,
-  });
-
-  return NextResponse.json({ message: 'パスワード再設定メールを送信しました' });
-}
+    await sendPasswordResetMail(email, `${process.env.NEXT_PUBLIC_URL}/reset-password/${token}`);
+    return NextResponse.json({ message: SENT_MESSAGE });
+  },
+);

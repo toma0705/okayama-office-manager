@@ -1,61 +1,20 @@
 /**
- * 退室の保留エンドポイント（アプリのビーコン検知用）
- * ビーコンの圏外になったときに呼ばれる。すぐには退室にせず、猶予の間に戻らなければ
- * finalizePendingExits が退室を確定して Discord に通知する。
- * 入室の保留中（確認の時間の間に圏外になった）なら、保留を取り消す（Discord には通知しない）。
- * Web の退室ボタンは、これまでどおり /exit ですぐに退室する。
+ * POST /api/users/[id]/leave — ビーコンの圏外になった（アプリ用）
+ * すぐには退室にせず保留にする。流れは lib/attendance.ts の leave を参照。
+ * Web の退室ボタンは /exit ですぐに退室する。
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuthenticatedUserId } from '@/lib/auth';
+import { leave } from '@/lib/attendance';
+import { handleRoute, parseIdParam, requireSelf, type IdContext } from '@/lib/http';
+import { findUserOrThrow } from '@/lib/user';
 
-export async function POST(req: NextRequest, context: any) {
-  const { params } = context;
-  const { id } = await params;
-  const userId = Number(id);
+export const POST = handleRoute(
+  '退室の保留に失敗しました',
+  async (req: NextRequest, context: IdContext) => {
+    const userId = await parseIdParam(context);
+    requireSelf(req, userId);
 
-  if (isNaN(userId)) {
-    return NextResponse.json({ error: '不正なIDです' }, { status: 400 });
-  }
-
-  try {
-    const authenticatedUserId = getAuthenticatedUserId(req);
-
-    if (!authenticatedUserId) {
-      return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
-    }
-
-    if (authenticatedUserId !== userId) {
-      return NextResponse.json({ error: '他ユーザーの退室は操作できません' }, { status: 403 });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user) {
-      return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
-    }
-
-    if (!user.entered) {
-      // 前を通っただけなので入室にしない
-      if (user.enterPendingSince) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { enterPendingSince: null },
-        });
-      }
-      return NextResponse.json({ status: 'exited' }, { status: 200 });
-    }
-
-    // 保留中なら最初に圏外になった時刻を保つ
-    if (!user.exitPendingSince) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { exitPendingSince: new Date() },
-      });
-    }
-
-    return NextResponse.json({ status: 'pending' }, { status: 200 });
-  } catch {
-    return NextResponse.json({ error: '退室の保留に失敗しました' }, { status: 500 });
-  }
-}
+    const status = await leave(await findUserOrThrow(userId));
+    return NextResponse.json({ status });
+  },
+);

@@ -1,56 +1,36 @@
 /**
- * ユーザー認証エンドポイント
- * ユーザーの認証情報を検証してJWTトークンを発行
+ * POST /api/users/login — ログイン。メールアドレスとパスワードを確かめて JWT を発行する
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getJwtSecret } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { resolveUserIconUrl } from '@/lib/storage';
-import { omitUserSecrets } from '@/lib/user';
+import { prisma } from '@/lib/prisma';
+import { getJwtSecret } from '@/lib/auth';
+import { handleRoute, HttpError, readJson, stringField } from '@/lib/http';
+import { officeSummarySelect, toPublicUser } from '@/lib/user';
 
-// JWTトークンの有効期限（180日間）
-// アプリはほとんど開かれず、バックグラウンドの自動入退室もこのトークンを使うため長めにしている
+// JWT の有効期限。アプリはほとんど開かれず、バックグラウンドの自動入退室も
+// このトークンを使うため長めにしている
 const JWT_EXPIRES_IN = '180d';
 
-export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
+const INVALID_CREDENTIALS = 'メールアドレスまたはパスワードが違います';
 
+export const POST = handleRoute('ログインに失敗しました', async (req: NextRequest) => {
+  const body = await readJson(req);
+  const email = stringField(body, 'email');
+  const password = stringField(body, 'password');
   if (!email || !password) {
-    return NextResponse.json({ error: 'emailとpasswordは必須です' }, { status: 400 });
+    throw new HttpError(400, 'emailとpasswordは必須です');
   }
 
-  // メールアドレスでユーザーを検索
   const user = await prisma.user.findFirst({
     where: { email },
-    include: {
-      office: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
-        },
-      },
-    },
+    include: { office: { select: officeSummarySelect } },
   });
-  if (!user) {
-    return NextResponse.json(
-      { error: 'メールアドレスまたはパスワードが違います' },
-      { status: 401 },
-    );
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    throw new HttpError(401, INVALID_CREDENTIALS);
   }
 
-  // パスワード照合
-  const isValid = await bcrypt.compare(password, user.password);
-  if (!isValid) {
-    return NextResponse.json(
-      { error: 'メールアドレスまたはパスワードが違います' },
-      { status: 401 },
-    );
-  }
-
-  // JWTトークン生成（180日間有効）
   const token = jwt.sign(
     {
       id: user.id,
@@ -63,12 +43,5 @@ export async function POST(req: NextRequest) {
     { expiresIn: JWT_EXPIRES_IN },
   );
 
-  const userSafe = omitUserSecrets(user);
-  return NextResponse.json({
-    user: {
-      ...userSafe,
-      iconFileName: resolveUserIconUrl(userSafe.iconFileName) ?? userSafe.iconFileName,
-    },
-    token,
-  });
-}
+  return NextResponse.json({ user: toPublicUser(user), token });
+});

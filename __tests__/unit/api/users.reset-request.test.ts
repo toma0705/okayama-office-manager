@@ -29,19 +29,24 @@ describe('POST /api/users/reset-password-request', () => {
   beforeEach(() => {
     testSendMail = jest.fn().mockResolvedValue({});
   });
-  it('500: prisma.user.updateが失敗した場合はエラー', async () => {
+  it('500: DB の更新に失敗したら、詳細を返さずに 500', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     prisma.user.findUnique.mockResolvedValue({ id: 1, email: 'a@b.c' });
     prisma.user.update.mockRejectedValue(new Error('update error'));
     const req = { json: async () => ({ email: 'a@b.c' }) } as any;
-    await expect(resetRequest(req)).rejects.toThrow('update error');
+    const res = await resetRequest(req);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'パスワード再設定メールの送信に失敗しました' });
   });
 
-  it('500: メール送信失敗時はエラー', async () => {
+  it('500: メールの送信に失敗したら 500', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     prisma.user.findUnique.mockResolvedValue({ id: 1, email: 'a@b.c' });
     prisma.user.update.mockResolvedValue({});
     testSendMail.mockRejectedValueOnce(new Error('mail error'));
     const req = { json: async () => ({ email: 'a@b.c' }) } as any;
-    await expect(resetRequest(req)).rejects.toThrow('mail error');
+    const res = await resetRequest(req);
+    expect(res.status).toBe(500);
   });
   beforeEach(() => jest.clearAllMocks());
 

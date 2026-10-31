@@ -1,84 +1,47 @@
 /**
- * ユーザープロフィールと入室中ユーザー取得エンドポイント
- * 認証されたユーザーの情報と現在入室中のユーザーリストを返す
+ * GET /api/users/me — ログイン中のユーザーと、同じオフィスで入室中のユーザーの一覧
+ * アプリと Web の画面は、この結果で在室状況を表示する。
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { settlePendingAttendance } from '@/lib/attendance';
-import { getAuthenticatedUserId } from '@/lib/auth';
-import { resolveUserIconUrl } from '@/lib/storage';
-import { omitUserSecrets } from '@/lib/user';
+import { handleRoute, HttpError, requireAuth } from '@/lib/http';
+import { officeSummarySelect, toPublicUser, withIconUrl } from '@/lib/user';
 
-export async function GET(req: NextRequest) {
-  try {
-    const userId = getAuthenticatedUserId(req);
+export const GET = handleRoute('ユーザー情報の取得に失敗しました', async (req: NextRequest) => {
+  const userId = requireAuth(req);
 
-    if (!userId) {
-      return NextResponse.json({ error: '認証情報がありません' }, { status: 401 });
-    }
+  // 時間を過ぎた入退室の保留を確定してから返す（定期実行が止まっていても表示がずれないように）。
+  // 失敗しても在室状況は返す
+  await settlePendingAttendance().catch(error =>
+    console.warn('入退室の保留の確定に失敗しました', error),
+  );
 
-    // 時間を過ぎた入退室の保留を確定してから在室状況を返す（定期実行が止まっていても表示がずれないように）。
-    // 失敗しても在室状況は返す（この API の失敗はアプリではログアウト扱いになるため）
-    await settlePendingAttendance().catch(error =>
-      console.warn('Failed to settle pending attendance', error),
-    );
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { office: { select: officeSummarySelect } },
+  });
+  if (!user) throw new HttpError(404, 'ユーザーが見つかりません');
 
-    // 認証されたユーザー情報を取得
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        office: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
-        },
-      },
-    });
+  const enteredUsers = await prisma.user.findMany({
+    where: { entered: true, officeId: user.officeId },
+    select: {
+      id: true,
+      name: true,
+      iconFileName: true,
+      note: true,
+      enteredAt: true,
+      exitedAt: true,
+      entered: true,
+      email: true,
+      officeId: true,
+      office: { select: officeSummarySelect },
+    },
+    orderBy: [{ enteredAt: 'asc' }],
+  });
 
-    if (!user) {
-      return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 });
-    }
-
-    // 現在入室中のユーザーリストを取得
-    const enteredUsers = await prisma.user.findMany({
-      where: {
-        entered: true,
-        officeId: user.officeId,
-      },
-      select: {
-        id: true,
-        name: true,
-        iconFileName: true,
-        note: true,
-        enteredAt: true,
-        exitedAt: true,
-        entered: true,
-        email: true,
-        officeId: true,
-        office: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: [{ enteredAt: 'asc' }],
-    });
-
-    return NextResponse.json({
-      user: {
-        ...omitUserSecrets(user),
-        iconFileName: resolveUserIconUrl(user.iconFileName) ?? user.iconFileName,
-      },
-      enteredUsers: enteredUsers.map(enteredUser => ({
-        ...enteredUser,
-        iconFileName: resolveUserIconUrl(enteredUser.iconFileName) ?? enteredUser.iconFileName,
-      })),
-    });
-  } catch {
-    return NextResponse.json({ error: '認証エラー' }, { status: 401 });
-  }
-}
+  return NextResponse.json({
+    user: toPublicUser(user),
+    enteredUsers: enteredUsers.map(withIconUrl),
+  });
+});
