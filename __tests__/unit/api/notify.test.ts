@@ -6,10 +6,10 @@ const mockGetAuthenticatedUserId = jest.fn();
 jest.mock('@/lib/auth', () => ({
   getAuthenticatedUserId: (...args: unknown[]) => mockGetAuthenticatedUserId(...args),
 }));
-const mockUpdateBoard = jest.fn();
+const mockPostAttendance = jest.fn();
 jest.mock('@/lib/discord', () => ({
   ...jest.requireActual('@/lib/discord'),
-  updateAttendanceBoard: (...args: unknown[]) => mockUpdateBoard(...args),
+  postAttendanceMessage: (...args: unknown[]) => mockPostAttendance(...args),
 }));
 
 describe('POST /api/notify', () => {
@@ -22,7 +22,7 @@ describe('POST /api/notify', () => {
 
   beforeEach(async () => {
     jest.resetModules();
-    mockUpdateBoard.mockReset();
+    mockPostAttendance.mockReset();
     mockFindUnique.mockReset();
     mockGetAuthenticatedUserId.mockReset();
     mockGetAuthenticatedUserId.mockReturnValue(1);
@@ -59,11 +59,11 @@ describe('POST /api/notify', () => {
     const res = await notifyPost(req);
 
     expect(res.status).toBe(200);
-    expect(global.fetch).toHaveBeenCalledWith(tokyoWebhook, expect.any(Object));
-
-    const [, options] = (global.fetch as jest.Mock).mock.calls.at(-1) ?? [];
-    const payload = JSON.parse(options.body as string);
-    expect(payload.content).toBe('東京ユーザー さんが 入室 しました！');
+    expect(mockPostAttendance).toHaveBeenCalledWith(
+      'TOKYO',
+      tokyoWebhook,
+      '東京ユーザー さんが 入室 しました！',
+    );
   });
 
   it('未定義オフィスはデフォルトWebhookに送信する', async () => {
@@ -73,11 +73,11 @@ describe('POST /api/notify', () => {
     const res = await notifyPost(req);
 
     expect(res.status).toBe(200);
-    expect(global.fetch).toHaveBeenCalledWith(okayamaWebhook, expect.any(Object));
-
-    const [, options] = (global.fetch as jest.Mock).mock.calls.at(-1) ?? [];
-    const payload = JSON.parse(options.body as string);
-    expect(payload.content).toBe('福岡ユーザー さんが 退室 しました！');
+    expect(mockPostAttendance).toHaveBeenCalledWith(
+      'Fukuoka',
+      okayamaWebhook,
+      '福岡ユーザー さんが 退室 しました！',
+    );
   });
 
   it('環境変数があれば新オフィス用Webhookに送信できる', async () => {
@@ -86,7 +86,7 @@ describe('POST /api/notify', () => {
     ({ POST: notifyPost } = await import('@/app/api/notify/route'));
 
     sender('大阪ユーザー', 'osaka');
-    const req = buildRequest({ status: '入室', note: '大阪拠点で商談中' });
+    const req = buildRequest({ status: 'メモを追加', note: '大阪拠点で商談中' });
 
     const res = await notifyPost(req);
 
@@ -117,18 +117,20 @@ describe('POST /api/notify', () => {
     expect(json.error).toContain('DISCORD_WEBHOOK_URL_DEFAULT');
   });
 
-  it('入退室通知では在室ボードを更新する', async () => {
+  it('入退室通知は在室状況を添えて送り、メッセージを別に送らない', async () => {
     sender('A', 'TOKYO');
     await notifyPost(buildRequest({ status: '入室' }));
 
-    expect(mockUpdateBoard).toHaveBeenCalledWith('TOKYO', tokyoWebhook);
+    expect(mockPostAttendance).toHaveBeenCalledWith('TOKYO', tokyoWebhook, 'A さんが 入室 しました！');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('メモ追加では在室ボードを更新しない', async () => {
+  it('メモ追加ではメモだけを送り、在室状況は添えない', async () => {
     sender('A', 'TOKYO');
     await notifyPost(buildRequest({ status: 'メモを追加', note: 'hello' }));
 
-    expect(mockUpdateBoard).not.toHaveBeenCalled();
+    expect(mockPostAttendance).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledWith(tokyoWebhook, expect.any(Object));
   });
 
   it('401: 未ログインでは通知しない', async () => {
@@ -136,15 +138,14 @@ describe('POST /api/notify', () => {
     const res = await notifyPost(buildRequest({ status: '入室' }));
     expect(res.status).toBe(401);
     expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockPostAttendance).not.toHaveBeenCalled();
   });
 
   it('送信内容のユーザー名・オフィスは使わない（なりすまし防止）', async () => {
     sender('本人', 'TOKYO');
     await notifyPost(buildRequest({ user: '他人', officeCode: 'OKAYAMA', status: '入室' }));
 
-    expect(global.fetch).toHaveBeenCalledWith(tokyoWebhook, expect.any(Object));
-    const [, options] = (global.fetch as jest.Mock).mock.calls.at(-1) ?? [];
-    expect(JSON.parse(options.body as string).content).toBe('本人 さんが 入室 しました！');
+    expect(mockPostAttendance).toHaveBeenCalledWith('TOKYO', tokyoWebhook, '本人 さんが 入室 しました！');
   });
 
   it('400: 不正なステータス', async () => {
