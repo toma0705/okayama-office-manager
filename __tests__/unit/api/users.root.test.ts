@@ -155,8 +155,12 @@ describe('GET/POST /api/users (root)', () => {
       officeId: 2,
       office: { id: 2, code: 'TOKYO', name: '東京オフィス' },
     };
+    // DB からはパスワードのハッシュなども返ってくる
     prisma.user.create.mockImplementation(async ({ data }: any) => ({
       ...created,
+      password: data.password,
+      resetToken: null,
+      resetTokenExpires: null,
       iconFileName: data.iconFileName,
     }));
     storage.uploadUserIcon.mockResolvedValue({
@@ -168,10 +172,13 @@ describe('GET/POST /api/users (root)', () => {
     const res = await usersPost(req);
     expect(res.status).toBe(201);
     const json = await res.json();
+    // パスワードのハッシュや再設定トークンは返さない
     expect(json).toEqual({
       ...created,
       iconFileName: 'https://example.r2.dev/icon.jpg',
     });
+    expect(json).not.toHaveProperty('password');
+    expect(json).not.toHaveProperty('resetToken');
   });
 
   it('POST: 400 存在しないオフィスコード', async () => {

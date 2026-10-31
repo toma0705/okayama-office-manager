@@ -133,6 +133,15 @@ describe('POST /api/notify', () => {
     expect(global.fetch).toHaveBeenCalledWith(tokyoWebhook, expect.any(Object));
   });
 
+  it('メモに @everyone が含まれていてもメンションとして鳴らさない', async () => {
+    sender('A', 'OKAYAMA');
+    await notifyPost(buildRequest({ status: 'メモを追加', note: '@everyone 集合' }));
+
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.content).toBe('A さんのメモ: @everyone 集合');
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+  });
+
   it('401: 未ログインでは通知しない', async () => {
     mockGetAuthenticatedUserId.mockReturnValue(null);
     const res = await notifyPost(buildRequest({ status: '入室' }));

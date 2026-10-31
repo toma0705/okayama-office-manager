@@ -1,6 +1,7 @@
 /**
  * Discord 連携の共通処理
  * - オフィスごとの Webhook URL 解決
+ * - メッセージの送信（@everyone などのメンションは鳴らさない）
  * - 入退室の通知（そのときの在室状況を添えて 1 通で送る）
  */
 import { prisma } from '@/lib/prisma';
@@ -37,15 +38,39 @@ export const buildPresenceEmbed = (officeName: string, users: PresenceUser[]) =>
   };
 };
 
+type DiscordEmbed = ReturnType<typeof buildPresenceEmbed>;
+
 /**
- * 入退室のメッセージに、そのときの在室状況を添えて 1 通で送る。
- * 通知本体を妨げないよう、失敗してもエラーは投げずログに留める。
+ * Webhook にメッセージを送る。メモなど利用者が書いた文に @everyone や @here が含まれていても、
+ * メンションとして鳴らさない（allowed_mentions）。
+ * 呼び出し元の処理を妨げないよう、失敗してもエラーは投げずログに留める。
  */
+export const postDiscordMessage = async (
+  webhookUrl: string,
+  content: string,
+  embeds: DiscordEmbed[] = [],
+) => {
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, embeds, allowed_mentions: { parse: [] } }),
+    });
+    if (!res.ok) {
+      console.warn('Discord への通知に失敗しました', res.status);
+    }
+  } catch (error) {
+    console.warn('Discord への通知中にエラーが発生しました', error);
+  }
+};
+
+/** 入退室のメッセージに、そのときの在室状況を添えて 1 通で送る */
 export const postAttendanceMessage = async (
   officeCode: string,
   webhookUrl: string,
   content: string,
 ) => {
+  let embeds: DiscordEmbed[] = [];
   try {
     const office = await prisma.office.findUnique({
       where: { code: officeCode },
@@ -57,20 +82,10 @@ export const postAttendanceMessage = async (
         },
       },
     });
-
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content,
-        embeds: office ? [buildPresenceEmbed(office.name, office.users)] : [],
-        allowed_mentions: { parse: [] },
-      }),
-    });
-    if (!res.ok) {
-      console.warn('入退室の通知に失敗しました', res.status);
-    }
+    if (office) embeds = [buildPresenceEmbed(office.name, office.users)];
   } catch (error) {
-    console.warn('入退室の通知中にエラーが発生しました', error);
+    // 在室状況が取れなくても、入退室のメッセージは送る
+    console.warn('在室状況の取得に失敗しました', error);
   }
+  await postDiscordMessage(webhookUrl, content, embeds);
 };
