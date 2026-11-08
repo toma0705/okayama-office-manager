@@ -143,8 +143,9 @@ export const POST = handleRoute('入室に失敗しました', async (req: NextR
 
 1. `src/app/api` のルートを変える（テストも足す）
 2. `openapi/openapi.yaml` を合わせて直す（`openapi.test.ts` が確かめる）。互換性のない変更なら `info.version` の先頭の数字を上げる
-3. main にマージすると、GitHub Actions が api-client に PR を作る → マージするとタグが付く
-4. アプリ（native）の `package.json` の api-client のタグを書き換える
+3. main にマージすると、GitHub Actions が api-client に PR を作る（api-client とアプリは前任者が管理し、アプリに取り込む）
+
+アプリがこの API を使っているので、ルートを消す・応答の形を変えるといった互換性のない変更は、事前に前任者に相談してください（[docs/handover.md](docs/handover.md#api-を変えるときアプリが使っているので注意)）。
 
 ## DB（スキーマ）を変えるとき
 

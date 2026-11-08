@@ -51,6 +51,8 @@ CI は、マイグレーションが空の DB に適用できるか、`schema.pr
 `openapi/openapi.yaml` を変えて main にマージすると、GitHub Actions（[.github/workflows/api-client.yml](../.github/workflows/api-client.yml)）が [office-manager-api-client](https://github.com/toma0705/office-manager-api-client) に PR を作ります。
 そのために、api-client に書き込めるトークンを、このリポジトリのシークレット `API_CLIENT_TOKEN` に登録しておく必要があります。
 
+api-client とアプリは前任者（toma0705）が管理しているので、**このトークンも前任者が作って登録します**。作られた PR のマージとアプリへの取り込みも前任者が行います。後任は、トークンの期限切れなどでこのワークフローが失敗していたら、前任者に知らせてください。
+
 ### トークンの作り方・登録の仕方
 
 1. GitHub の Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token
@@ -68,7 +70,7 @@ CI は、マイグレーションが空の DB に適用できるか、`schema.pr
 
 1. DB の `Office` テーブルに行を足す（`code` は英大文字。例: `OSAKA`）。Prisma Studio（`npx prisma studio`）を本番の `DATABASE_URL` で開くか、SQL で入れる
 2. Discord の通知先を分けるなら、Vercel に `DISCORD_WEBHOOK_URL_OSAKA` を足して再デプロイ（なければ `DISCORD_WEBHOOK_URL_DEFAULT` に送る）
-3. ビーコンで自動入退室するなら、アプリ側にビーコンの設定を足してアプリを出し直す（native の README の「オフィスのビーコンを増やす」）
+3. ビーコンで自動入退室するなら、アプリ側にビーコンの設定を足してアプリを出し直す必要がある → 前任者に依頼する
 
 ## 秘密の値を変える
 

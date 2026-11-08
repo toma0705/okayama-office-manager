@@ -1,40 +1,38 @@
-# 引き継ぎ資料（入退室管理アプリ）
+# 引き継ぎ資料（入退室管理 Web・API）
 
-このアプリを引き継ぐ人が、最初に読む資料です。全体像・最初にやること・定期的に必要な作業・既知の課題をまとめています。
+このリポジトリ（Web の画面と API）を引き継ぐ人が、最初に読む資料です。全体像・最初にやること・定期的に必要な作業・既知の課題をまとめています。
 アカウントの持ち主や秘密の値の置き場所は、公開リポジトリには書かず、前任者から共有される**非公開の引き継ぎ資料**にまとめています。
+
+## 引き継ぐ範囲
+
+**引き継ぐのは、このリポジトリ（Web・API）と、それを動かすサービスです。** iOS・Android アプリと api-client は、引き続き前任者（toma0705）が管理します。
+
+| リポジトリ                                                                           | 内容                                       | 管理する人 |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ | ---------- |
+| [okayama-office-manager](https://github.com/toma0705/okayama-office-manager)（これ） | Web の画面と API（Next.js）。Vercel で公開 | **後任**   |
+| [office-manager-native](https://github.com/toma0705/office-manager-native)           | iOS・Android アプリ。この API を使う       | 前任者     |
+| [office-manager-api-client](https://github.com/toma0705/office-manager-api-client)   | アプリが API を呼ぶクライアント            | 前任者     |
+
+引き継ぐサービス: Vercel（Web・API）、Prisma Postgres（DB）、Cloudflare R2（画像）、cron-job.org（定期実行）、Discord の Webhook（通知）。詳しくは [operations.md](operations.md)。
 
 ## このアプリでできること
 
-- オフィスに「今だれがいるか」を、アプリ・Web・Discord で確認できる
-- アプリを入れておくと、オフィスのビーコン（ESP32）を検知して**自動で入退室**を記録する
-- 入退室のたびに、そのときの在室状況を添えて Discord に通知する
+- オフィスに「今だれがいるか」を、Web・アプリ・Discord で確認できる
 - Web からは手動で入退室できる。メモ（「〜時まで作業中」など）も残せる
+- アプリを入れている人は、オフィスのビーコンを検知して自動で入退室する（アプリがこの API を呼ぶ）
+- 入退室のたびに、そのときの在室状況を添えて Discord に通知する
 
-## 全体像
-
-| リポジトリ                                                                          | 内容                            | 公開のされ方                                          |
-| ----------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------- |
-| [okayama-office-manager](https://github.com/toma0705/okayama-office-manager)（web） | Web の画面と API（Next.js）     | main にマージすると Vercel が自動で本番に反映         |
-| [office-manager-native](https://github.com/toma0705/office-manager-native)          | iOS・Android アプリ（Expo）     | 手元でビルドして App Store / Google Play に提出       |
-| [office-manager-api-client](https://github.com/toma0705/office-manager-api-client)  | アプリが API を呼ぶクライアント | web の OpenAPI 仕様から自動生成。タグでバージョン管理 |
-
-外部のサービス: Vercel（Web・API）、Prisma Postgres（DB）、Cloudflare R2（画像）、cron-job.org（定期実行）、Discord（通知）、App Store Connect、Google Play Console。
-詳しくは [operations.md](operations.md)。
-
-### 自動入退室の流れ
+### 自動入退室で API がすること
 
 ```
-ビーコンの圏内になる
-  → アプリ（iOS は JS、Android はネイティブ）が /api/users/{id}/arrive を呼ぶ
-  → サーバーが「入室の保留」にする
+ビーコンの圏内になる → アプリが /api/users/{id}/arrive を呼ぶ → API が「入室の保留」にする
   → 1 分のあいだ圏外にならなければ、cron-job.org の毎分のジョブが入室を確定 → Discord に通知
-ビーコンの圏外になる
-  → アプリが /api/users/{id}/leave を呼ぶ → サーバーが「退室の保留」にする
+ビーコンの圏外になる → アプリが /api/users/{id}/leave を呼ぶ → API が「退室の保留」にする
   → 15 分のあいだ戻らなければ退室を確定 → Discord に通知（戻れば取り消し）
 毎日 4:00 → 入室中のまま残っている人を全員退室にする（通知しない）
 ```
 
-どの API を呼ぶかの判定は、iOS（`native/src/services/beacon/attendanceDecision.ts`）と Android（`AttendanceDecision.kt`）に同じものがあり、どちらも同じ表（`native/modules/office-beacon/test-fixtures/attendance-decisions.json`）でテストしています。
+アプリ側の処理は前任者の担当ですが、保留と確定はすべてこのリポジトリ（`src/lib/attendance.ts`）が行います。
 
 ## 最初にやること
 
@@ -42,75 +40,68 @@
 
 非公開の引き継ぎ資料の一覧を見ながら、次の権限をもらいます。
 
-- [ ] GitHub の 3 つのリポジトリ（Admin か、少なくとも Write）
-- [ ] Vercel のプロジェクト
+- [ ] GitHub の okayama-office-manager（Admin）
+- [ ] Vercel のプロジェクト（環境変数を見られること）
 - [ ] Prisma Data Platform（DB）
 - [ ] Cloudflare（R2）
-- [ ] cron-job.org
+- [ ] cron-job.org（自分のアカウントにジョブを作り直す）
 - [ ] Discord サーバーの Webhook の管理
-- [ ] App Store Connect（Apple Developer Program のチーム）
-- [ ] Google Play Console
-- [ ] Android のアップロード鍵（keystore）とそのパスワード（なくすとアプリを更新できなくなる）
+- [ ] パスワード再設定メールの送信元（SMTP）
 
 ### 手元で動かす
 
-1. web: [README の「開発を始める」](../README.md#開発を始める)。`npm test` と `npm run test:integration` が通ることを確かめる
-2. native: [native の README](https://github.com/toma0705/office-manager-native#開発を始める)。シミュレーターで起動し、ローカルの web にログインできることを確かめる
+1. [README の「開発を始める」](../README.md#開発を始める)の手順で起動し、`dev@4nonome.com` でログインできることを確かめる
+2. `npm test` と `npm run test:integration` が通ることを確かめる
 3. 小さな変更で PR を作り、CI が通ってマージできるところまでやってみる
 
 ### コードを読む順番
 
-1. `web/src/lib/attendance.ts` … 入退室の状態と保留（このアプリの中心）
-2. `web/src/lib/http.ts` と `web/src/app/api/users/[id]/arrive/route.ts` … API ルートの書き方
-3. `native/src/services/backgroundBeacon.ts` と `native/src/services/beacon/` … アプリ側の自動入退室
-4. `native/modules/office-beacon/` … iOS（Swift）・Android（Kotlin）のビーコン検知
-5. 各リポジトリの `__tests__` … 何が確かめられているか
+1. `src/lib/attendance.ts` … 入退室の状態と保留（このアプリの中心）
+2. `src/lib/http.ts` と `src/app/api/users/[id]/arrive/route.ts` … API ルートの書き方
+3. `src/app/page.tsx` と `src/lib/client/api.ts` … Web の画面
+4. `__tests__/` … 何が確かめられているか（`integration/` は本物の DB で流れを通す）
 
 ## 決まりごと
 
 - main に直接 push しない。PR を作り、CI が通ってからマージする（main は CI が通らないとマージできないよう保護している）
 - 1 つの PR では 1 つのことだけ変える。挙動を変えるときは PR の本文に書く
-- API を変えたら `openapi/openapi.yaml` も直す（テストが確かめる）
 - DB を変える PR は、マージの前に本番に `prisma migrate deploy` する（[operations.md](operations.md#db-のマイグレーション)）
-- 秘密の値（トークン・パスワード・API キー）をリポジトリに入れない。3 つとも**公開リポジトリ**です
+- 秘密の値（トークン・パスワード・API キー）をリポジトリに入れない。このリポジトリは**公開**です
+
+### API を変えるとき（アプリが使っているので注意）
+
+iOS・Android アプリがこの API を使っています。ストアのアプリは全員がすぐに更新するわけではないので、**今のアプリが壊れない変更**にしてください。
+
+- 足すだけ（新しいルート・応答に項目を足す）なら、アプリに影響しません
+- 消す・名前を変える・応答の形や意味を変えるときは、**事前に前任者に相談**してください。アプリを先に直して出す必要があります
+- アプリが使っているルート: `/users/login`、`/users/me`、`/users`（GET・POST）、`/users/{id}`（DELETE）、`/users/{id}/arrive`、`/users/{id}/leave`、`/users/reset-password-request`、`/offices`
+- 古いアプリ（3.0.1 以前）は、さらに `/users/{id}/enter`・`/users/{id}/exit`・`/notify` も使う。更新していない人がいるので、これらも残す
+- ルートを変えたら `openapi/openapi.yaml` も直す（テストが確かめる）。main に入ると api-client に更新の PR が自動で作られ、前任者がアプリに取り込みます
 
 ## 定期的に必要な作業
 
-| いつ             | 作業                                                                                                                         |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 毎年             | Apple Developer Program の更新（切れると App Store から消える）                                                              |
-| 毎年（8 月ごろ） | Google Play が求める targetSdkVersion に上げる（`native/app.config.js` の `expo-build-properties`）                          |
-| 年に 1 回くらい  | Expo SDK を上げる（`npx expo install expo@latest` → `npx expo install --fix`）。古い SDK は新しい Xcode でビルドできなくなる |
-| 依存の更新       | web は `npm outdated`、native は `npx expo install --check`。上げたら CI とシミュレーターで確かめる                          |
-| トークンの期限   | `API_CLIENT_TOKEN`（api-client の自動更新）は期限が切れたら作り直す                                                          |
-| 気づいたとき     | cron-job.org の実行履歴で、毎分のジョブが失敗していないか見る                                                                |
+| いつ            | 作業                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| 依存の更新      | `npm outdated` で確かめ、上げたら CI と Vercel のプレビューで確かめる                      |
+| 年に 1 回くらい | Next.js・Prisma のメジャーバージョンを上げる。Node.js のサポート期限（`.nvmrc`）も確かめる |
+| 気づいたとき    | cron-job.org の実行履歴で、毎分のジョブが失敗していないか見る                              |
+| 気づいたとき    | Vercel の Logs で 500 のエラーが出ていないか見る                                           |
 
-ログイン用のトークンは 180 日で切れます。切れたユーザーはアプリでログインし直すまで自動入退室が止まります。
-
-## アプリのリリース
-
-Web と API は main へのマージで自動的に本番に出ます。アプリ（iOS・Android）は手元でビルドして提出します。手順は [native の README の「リリース」](https://github.com/toma0705/office-manager-native#リリース)。
-
-- **API を変えるときは、古いアプリでも動くようにする**。ストアのアプリは、全員がすぐに更新するわけではありません
-- アプリより先に、API（web）を本番に出す
+ログイン用のトークンは 180 日で切れます。切れたユーザーはログインし直す必要があります（アプリの自動入退室も止まる）。
 
 ## 知っておきたい仕様
 
-- 登録できるメールアドレスは `@4nonome.com` だけ（`web/src/lib/constants.ts`）
-- アプリは起動時に Face ID などで本人か確かめ、失敗・キャンセル・端末が非対応なら、保存しているログインを消してログイン画面に戻る
-- アプリのログインでは、パスワードの前後の空白を取り除く
-- アプリの「テストモード」（`OFFICE_MANAGER_TEST_MODE=1` でビルド）は、検知と記録の結果を端末に通知する（Android のみ）。入退室の確定はサーバーが行うので、Discord にも通知される
-- パスワードの再設定は、メールのリンクから Web の画面で行う（アプリには画面がない）
+- 登録できるメールアドレスは `@4nonome.com` だけ（`src/lib/constants.ts`）
+- パスワードの再設定は、メールのリンクから Web の画面（`/reset-password/[token]`）で行う。アプリの利用者もここを使う
+- Web の入室・退室ボタンはすぐに反映する。アプリの検知は保留にしてから確定する
+- 毎日 4:00 に入室中の全員を退室にする（Discord には通知しない）
 
 ## 既知の課題・改善のアイデア
 
 優先度の高いものから並べています。
 
-- **ログイン用トークンの保存場所**: アプリはトークンを AsyncStorage（暗号化なし）に保存している。SecureStore（`AFTER_FIRST_UNLOCK`）に移すと安全。バックグラウンドで読めるよう `WHEN_UNLOCKED` にはしない
-- **iOS でアプリが終了しているときの検知**: SceneDelegate の設定（`native/plugins/withSceneLifecycle.js`）にしてから、OS がバックグラウンドで起こしたときに JS が動くかを実機で確かめていない。動かない場合は、アプリを開いたときにまとめて反映される
-- **トークンの期限切れに気づけない**: バックグラウンドの API が 401 になっても利用者に知らせていない
 - **パスワード再設定とアカウント削除で、発行済みのトークンが無効にならない**
 - **新規登録のメールアドレスを確かめていない**（だれでも @4nonome.com のアドレスを名乗れる）。ログイン・登録の回数制限もない
-- **スプラッシュ画面の画像**が Expo の初期のまま（`native/assets/splash-icon.png`）
-- **Expo のパッチ版の更新**（`npx expo-doctor` が案内する）
+- **パスワード再設定のトークンを平文で DB に保存している**（ハッシュにすると安全）
+- `/users/me` が、同じオフィスで入室中の人のメールアドレスも返している（アプリの型が使っているので、消すときは前任者と相談）
 - Web のログインはパスワードの前後の空白を取り除くが、Web の新規登録は取り除かない（アプリはどちらも取り除く）
