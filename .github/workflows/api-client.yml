@@ -1,3 +1,4 @@
+# 【元のリポジトリ専用】コピーして使うときは、このファイルを消す（docs/build-your-own.md）。
 # main の openapi/openapi.yaml が変わったら、API クライアント（office-manager-api-client）を
 # 作り直して、そのリポジトリに PR を作る。
 # 書き込みにはシークレット API_CLIENT_TOKEN（api-client だけに権限を絞ったトークン）が必要。
@@ -26,7 +27,7 @@ jobs:
           TOKEN: ${{ secrets.API_CLIENT_TOKEN }}
         run: |
           if [ -z "$TOKEN" ]; then
-            echo "::error::シークレット API_CLIENT_TOKEN が未登録です（手順は docs/operations.md）"
+            echo "::error::シークレット API_CLIENT_TOKEN が未登録です（コピーしたリポジトリでは、このワークフローを消す: docs/build-your-own.md）"
             exit 1
           fi
       - uses: actions/checkout@v4

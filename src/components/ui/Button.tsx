@@ -16,6 +16,10 @@ const variantClass: Record<Variant, string> = {
   ghost: 'bg-transparent text-[#555] border border-transparent',
 };
 
+/**
+ * ボタン。variant で色を選ぶ（primary: 緑・secondary: 白地に緑・danger: 赤・ghost: 枠なし）。
+ * それ以外の属性（onClick・disabled・type など）は、そのまま HTML の <button> に渡す。
+ */
 export function Button({
   variant = 'primary',
   fullWidth,

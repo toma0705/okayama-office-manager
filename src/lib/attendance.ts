@@ -18,9 +18,12 @@ import type { User } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getDefaultWebhookUrl, postAttendanceMessage, resolveWebhookUrl } from '@/lib/discord';
 
+/** 入室の確認の時間（分）。この間ずっと圏内なら入室にする */
 export const ENTER_CONFIRM_MINUTES = 1;
+/** 退室の猶予（分）。この間に戻ってこなければ退室にする */
 export const EXIT_GRACE_MINUTES = 15;
 
+/** 入退室の処理に必要なユーザーの項目（DB の User のうち 4 つだけ） */
 type AttendanceState = Pick<User, 'id' | 'entered' | 'enterPendingSince' | 'exitPendingSince'>;
 
 /** 入室にするときの更新内容。保留はどちらも消す */
@@ -100,6 +103,7 @@ export const leave = async (user: AttendanceState, now = new Date()) => {
 
 type SettledUser = { name: string; office: { code: string } };
 
+/** 確定した人ごとに「〇〇 さんが 入室 しました！」を Discord に送る（通知先がなければ何もしない） */
 const notifySettled = async (users: SettledUser[], status: '入室' | '退室') => {
   const defaultWebhook = getDefaultWebhookUrl();
   if (!defaultWebhook) return;
@@ -112,6 +116,7 @@ const notifySettled = async (users: SettledUser[], status: '入室' | '退室') 
   }
 };
 
+/** now から minutes 分前の時刻 */
 const minutesBefore = (now: Date, minutes: number) => new Date(now.getTime() - minutes * 60 * 1000);
 
 /**

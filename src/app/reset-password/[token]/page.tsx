@@ -20,6 +20,7 @@ export default function ResetPasswordTokenPage() {
   const params = useParams();
   const token = params?.token as string;
 
+  /** 新しいパスワードを送る。URL に入っているトークンで、だれの再設定かをサーバーが確かめる */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

@@ -11,6 +11,7 @@ type Props = {
   className?: string;
 };
 
+/** 文字だけのリンク（「パスワードをお忘れの方はこちら」など）。href のページに移動する */
 export function LinkButton({
   href,
   children,

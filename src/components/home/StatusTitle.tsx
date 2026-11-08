@@ -1,4 +1,5 @@
 'use client';
+/** ホームの大きな表示。入室中なら「入室中」、そうでなければ「退出中」と出す */
 export function StatusTitle({ entered }: { entered: boolean }) {
   return (
     <div

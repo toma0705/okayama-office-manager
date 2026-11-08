@@ -21,12 +21,14 @@ export default function UsersPage() {
   const [offices, setOffices] = useState<Office[]>([]);
   const [selectedOffice, setSelectedOffice] = useState<number | 'ALL'>('ALL');
 
+  // 選んだオフィスのユーザーだけにする（「すべて」なら全員）
   const filteredUsers = useMemo(() => {
     return users.filter(user =>
       selectedOffice === 'ALL' ? true : user.office?.id === selectedOffice,
     );
   }, [users, selectedOffice]);
 
+  // 画面を開いたときに、ユーザーの一覧とオフィスの一覧を取ってくる（ログインしていなければログイン画面へ）
   useEffect(() => {
     if (!authToken.get()) {
       router.push('/login');

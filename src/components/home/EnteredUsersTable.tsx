@@ -10,6 +10,10 @@ type Props = {
   onSaveNote: (userId: number, note: string) => Promise<void> | void;
 };
 
+/**
+ * ホームの「入室中ユーザー」の表。名前・アイコン・入室した時刻・メモを並べる。
+ * 自分の行だけ「編集」でメモを書き換えられ、保存すると onSaveNote が呼ばれる。
+ */
 export function EnteredUsersTable({ me, users, onSaveNote }: Props) {
   // 編集中の行と、その行に入力中のメモ
   const [editingId, setEditingId] = useState<number | null>(null);

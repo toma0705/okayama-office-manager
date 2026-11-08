@@ -17,6 +17,7 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /** 再設定のメールを送ってもらう（登録されていないアドレスでも同じ表示になる） */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

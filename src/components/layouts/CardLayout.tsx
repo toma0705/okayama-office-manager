@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 
+/** 白いカードの中にフォームを置く外枠（パスワード再設定の画面で使う） */
 export function CardLayout({
   children,
   maxWidth = 400,

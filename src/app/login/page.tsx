@@ -20,10 +20,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // すでにログインしていれば（トークンが保存されていれば）、ホームに移動する
   useEffect(() => {
     if (authToken.get()) router.replace('/');
   }, [router]);
 
+  /** ログインボタン。成功したらトークンを保存してホームへ、失敗したらメッセージを出す */
   const handleLogin = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     if (loading) return;

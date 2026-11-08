@@ -5,6 +5,10 @@ type Props = {
   onExit: () => void;
   disabled?: boolean;
 };
+/**
+ * 入室・退室のボタン。退室中なら「入室」、入室中なら「退室」を出す。
+ * 押されたら onEnter / onExit を呼ぶ（実際の処理はホームの画面 src/app/page.tsx が行う）。
+ */
 export function EnterExitButtons({ entered, onEnter, onExit, disabled }: Props) {
   return (
     <div className='mx-auto mb-6 flex flex-col items-center gap-2'>

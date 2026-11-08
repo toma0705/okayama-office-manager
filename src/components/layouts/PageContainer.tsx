@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 
+/** 画面全体の外枠（背景・余白・中央寄せ）。各ページの一番外側で使う */
 export function PageContainer({
   children,
   style,

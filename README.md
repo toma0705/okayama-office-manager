@@ -1,170 +1,251 @@
 # 入退室管理（Web・API）
 
-IT 学生団体 PlayGround のオフィスに「今だれがいるか」を、いつでもどこからでも確認できるアプリです。
-このリポジトリは **Web の画面と、アプリ（iOS・Android）が使う API** です。
+オフィスに「今だれがいるか」を、いつでもどこからでも確認できる Web アプリです。
+IT 学生団体 PlayGround のオフィスのために作りました。
 
 ![アプリの画面](./screenshots/app-overview.png)
 
-> 引き継ぎの全体像は [docs/handover.md](docs/handover.md)、運用の手順は [docs/operations.md](docs/operations.md) を読んでください。
+このリポジトリをコピーして、自分たちの団体用に作り直すことができます。
+
+- このページ: アプリの全体像と、手元で動かす方法
+- [docs/how-it-works.md](docs/how-it-works.md): 中のしくみ（ログイン・入退室・通知）を図で説明
+- [docs/build-your-own.md](docs/build-your-own.md): 自分たちの団体用に作り直して、インターネットに公開する手順
+
+## できること
+
+- メールアドレスとパスワードで登録・ログインする（プロフィール画像つき）
+- 「入室」「退室」ボタンで、自分がオフィスにいるかを記録する
+- 同じオフィスで今いる人の一覧と、それぞれのメモ（「18 時まで作業中」など）を見る
+- 入室・退室すると、Discord に「〇〇 さんが 入室 しました！」と通知が届く（今いる人の一覧つき）
+- 毎日 4:00 に、退室を押し忘れた人をまとめて退室にする
 
 ## 全体の構成
 
-リポジトリは 3 つあります。
+このアプリは、大きく分けて「画面」「API」「DB」の 3 つでできています。
 
-| リポジトリ                                                                         | 内容                                                                                                    |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **okayama-office-manager**（これ）                                                 | Web の画面と API（Next.js）。Vercel で公開                                                              |
-| [office-manager-native](https://github.com/toma0705/office-manager-native)         | iOS・Android アプリ（Expo / React Native）。ビーコンで自動入退室する                                    |
-| [office-manager-api-client](https://github.com/toma0705/office-manager-api-client) | アプリが API を呼ぶための TypeScript クライアント。このリポジトリの `openapi/openapi.yaml` から自動生成 |
+```mermaid
+flowchart LR
+  subgraph user[使う人]
+    browser[ブラウザ<br/>Web の画面]
+    app[スマホアプリ<br/>別のリポジトリ]
+  end
+  subgraph vercel[Vercel で動いている部分 = このリポジトリ]
+    pages[画面<br/>src/app/*.tsx]
+    api[API<br/>src/app/api]
+  end
+  db[(DB<br/>PostgreSQL)]
+  r2[(画像の保存先<br/>Cloudflare R2)]
+  discord[Discord]
+  cron[cron-job.org<br/>決まった時刻に API を呼ぶ]
 
+  browser --> pages
+  pages -- fetch --> api
+  app -- fetch --> api
+  cron -- 毎分・毎日 4:00 --> api
+  api --> db
+  api --> r2
+  api -- 通知 --> discord
 ```
- iOS・Android アプリ ──┐
-                        ├─→ API（このリポジトリ・Vercel）──→ DB（Prisma Postgres）
- Web の画面 ───────────┘        │
-                                 ├─→ Discord（入退室の通知）
- cron-job.org（毎分・毎日 4:00）─┘   └─→ Cloudflare R2（プロフィール画像）
+
+| 部分   | 役割                                                                            | どこにあるか                  |
+| ------ | ------------------------------------------------------------------------------- | ----------------------------- |
+| 画面   | ボタンや一覧を表示する。ブラウザで動く                                          | `src/app/page.tsx` など       |
+| API    | 画面からの「入室したい」などのお願いを受けて、DB を読み書きする。サーバーで動く | `src/app/api/`                |
+| DB     | ユーザーやオフィスの情報を保存しておく場所                                      | 設計は `prisma/schema.prisma` |
+| Vercel | 画面と API をインターネットに公開するサービス                                   | —                             |
+
+画面と API は、どちらも **Next.js** というフレームワークで作っていて、1 つのリポジトリに入っています。
+スマホアプリ（ビーコンで自動入退室する）は別のリポジトリで、この API を使っています。Web だけでも動きます。
+
+### 画面で「入室」を押したときに起きること
+
+```mermaid
+sequenceDiagram
+  actor 人
+  participant 画面 as 画面（ブラウザ）
+  participant API as API（サーバー）
+  participant DB
+  participant Discord
+
+  人->>画面: 「入室」を押す
+  画面->>API: POST /api/users/3/enter（トークン付き）
+  API->>API: トークンを確かめる（だれからのお願いか）
+  API->>DB: ユーザー 3 を「入室中」にする
+  API-->>画面: 「入室しました」
+  画面->>API: POST /api/notify（入室したことを通知して）
+  API->>Discord: 「山田 さんが 入室 しました！」＋ 今いる人の一覧
+  画面->>API: GET /api/users/me（最新の状態をちょうだい）
+  API-->>画面: 自分の情報と、今いる人の一覧
+  画面->>人: 表示が「入室中」に変わる
 ```
 
-## 入退室のしくみ
+## DB に保存しているもの
 
-入退室の記録の仕方は 2 通りあります。
+```mermaid
+erDiagram
+  Office ||--o{ User : "所属する"
+  Office {
+    int id
+    string code "例: OKAYAMA"
+    string name "例: 岡山オフィス"
+  }
+  User {
+    int id
+    string name "名前"
+    string email "メールアドレス"
+    string password "パスワード（ハッシュにして保存）"
+    string iconFileName "プロフィール画像のファイル名"
+    boolean entered "今オフィスにいるか"
+    datetime enteredAt "入室した時刻"
+    datetime exitedAt "退室した時刻"
+    string note "メモ"
+    int officeId "所属するオフィス"
+  }
+```
 
-- **Web の入室・退室ボタン**: すぐに入室・退室になります（`/api/users/[id]/enter`・`/exit`）。
-- **アプリのビーコン検知**: すぐには入退室にせず、サーバーで「保留」にします（`/arrive`・`/leave`）。
-  - 入室: 前を通っただけの人を入室にしないよう、**1 分**のあいだ圏外にならなければ確定します。
-  - 退室: トイレや近くのコンビニに行っただけなら、**15 分**の猶予のあいだに戻れば取り消します。
+パスワードはそのまま保存せず、元に戻せない形（ハッシュ）にしてから保存しています。
+`User` にはほかに、スマホアプリの自動入退室で使う項目（`enterPendingSince`・`exitPendingSince`）や、パスワード再設定で使う項目があります。
 
-保留は、cron-job.org が毎分呼ぶ `/api/cron/finalize-exits` と、画面を開いたときの `/api/users/me` で確定し、そのときの在室状況を添えて Discord に 1 通送ります。
-退室を取りこぼした人が残らないよう、毎日 4:00 に `/api/cron/nightly-checkout` で全員を退室にします（通知はしません）。
+## 使っている技術
 
-| 状態         | `entered` | `enterPendingSince` | `exitPendingSince` |
-| ------------ | --------- | ------------------- | ------------------ |
-| 退室中       | false     | null                | null               |
-| 入室の保留中 | false     | 圏内になった時刻    | null               |
-| 入室中       | true      | null                | null               |
-| 退室の保留中 | true      | null                | 圏外になった時刻   |
+| 名前                                          | 何に使っているか                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| [Next.js](https://nextjs.org/) 16             | 画面と API を作るフレームワーク（React を使う）                              |
+| [TypeScript](https://www.typescriptlang.org/) | 型のある JavaScript。間違いを書いた時点で気づける                            |
+| [Tailwind CSS](https://tailwindcss.com/)      | 見た目（`className='text-white bg-green-500'` のように書く）                 |
+| [Prisma](https://www.prisma.io/)              | TypeScript から DB を読み書きする                                            |
+| PostgreSQL                                    | DB                                                                           |
+| JWT（jsonwebtoken）                           | ログインの仕組み（[how-it-works.md](docs/how-it-works.md#ログインのしくみ)） |
+| bcryptjs                                      | パスワードをハッシュにする                                                   |
+| sharp                                         | プロフィール画像を小さくする                                                 |
+| Jest                                          | テスト                                                                       |
+| Vercel                                        | インターネットへの公開                                                       |
 
-コードは [src/lib/attendance.ts](src/lib/attendance.ts) にまとまっています。
+## 手元で動かす
 
-## 技術スタック
+### 1. 必要なものを入れる
 
-| 項目           | 使っているもの                                               |
-| -------------- | ------------------------------------------------------------ |
-| フレームワーク | Next.js 16（App Router）・React 19・TypeScript               |
-| DB             | PostgreSQL（Prisma Postgres）・Prisma 6                      |
-| 認証           | JWT（180 日有効。アプリはほとんど開かれないため長め）        |
-| 画像           | Cloudflare R2（S3 互換）。200KB 以下に圧縮（sharp）          |
-| メール         | Nodemailer（パスワード再設定）                               |
-| 通知           | Discord Webhook                                              |
-| 公開           | Vercel（main にマージすると本番に反映、PR ごとにプレビュー） |
-| テスト         | Jest（単体テスト・本物の Postgres を使う結合テスト）         |
-| CI             | GitHub Actions                                               |
+| もの           | 何に使うか                      | 入れ方                                                        |
+| -------------- | ------------------------------- | ------------------------------------------------------------- |
+| Node.js 22     | JavaScript を動かす             | [公式サイト](https://nodejs.org/)、または nvm・Volta など     |
+| Docker Desktop | 手元で DB（PostgreSQL）を動かす | [公式サイト](https://www.docker.com/products/docker-desktop/) |
+| Git            | ソースコードの管理              | Mac なら最初から入っている                                    |
 
-## 開発を始める
+### 2. 動かす
 
-Node.js 22 と Docker が必要です。
+ターミナルで、このリポジトリのフォルダに入ってから、上から順に実行します。
 
 ```bash
-npm ci
-cp .env.example .env           # JWT_SECRET などを入れる（Prisma も Next.js も .env を読む）
-docker compose up -d           # ローカルの Postgres を起動
-npm run db:seed                # マイグレーションと、開発用のオフィス・ユーザーを入れる
-npm run dev                    # http://localhost:3000
+npm ci                         # 必要なライブラリを入れる（node_modules ができる）
+cp .env.example .env           # 設定ファイルを作る
 ```
 
-開発用のユーザーは `dev@4nonome.com` / `local-dev-password` です（[prisma/seed.sql](prisma/seed.sql)）。
+`.env` をエディタで開き、`JWT_SECRET=` のあとに適当な長い文字列を入れます（`openssl rand -hex 32` で作れます）。
 
-> **注意:** 本番の値（とくに `DATABASE_URL`）をローカルの `.env` に入れないでください。`prisma migrate dev` などが本番の DB を書き換えてしまいます。本番の値は Vercel にだけ置きます（`db:seed` と結合テストは、ローカル以外の DB では実行しないようにしています）。
+```bash
+docker compose up -d           # 手元で DB を起動する
+npm run db:seed                # DB の表を作り、練習用のオフィスとユーザーを入れる
+npm run dev                    # アプリを起動する
+```
+
+ブラウザで http://localhost:3000 を開き、次のユーザーでログインできれば成功です。
+
+- メールアドレス: `dev@4nonome.com`
+- パスワード: `local-dev-password`
+
+止めるときは、ターミナルで `Ctrl + C`。DB も止めるなら `docker compose down` です。
+
+> **画像と Discord について:** 手元では、プロフィール画像は `public/icons` に保存されます。Discord の設定をしなければ通知は送られません（入退室はできます）。
+
+### うまくいかないとき
+
+| 症状                                                         | 確かめること                                                         |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `npm ci` が失敗する                                          | `node -v` が v22 になっているか                                      |
+| `docker compose up -d` が失敗する                            | Docker Desktop を起動しているか                                      |
+| `npm run db:seed` が「ローカルの DB ではありません」で止まる | `.env` の `DATABASE_URL` が `localhost` になっているか               |
+| ログインできない                                             | `.env` に `JWT_SECRET` を入れたか。入れたら `npm run dev` をやり直す |
 
 ## よく使うコマンド
 
-| コマンド                   | 内容                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------ |
-| `npm run dev`              | 開発サーバー                                                                         |
-| `npm test`                 | 単体テスト                                                                           |
-| `npm run test:coverage`    | 単体テスト（カバレッジ付き。`coverage/index.html`）                                  |
-| `npm run test:integration` | 結合テスト（ローカルの Postgres が必要。DB の中身は消える）                          |
-| `npm run lint`             | ESLint                                                                               |
-| `npm run format`           | Prettier で整形                                                                      |
-| `npm run typecheck`        | 型チェック                                                                           |
-| `npm run db:seed`          | ローカルの DB に開発用のデータを入れる                                               |
-| `npm run openapi:generate` | `openapi/openapi.yaml` から api-client を生成（`../api-client` に出力。Java が必要） |
+| コマンド                   | 内容                                                     |
+| -------------------------- | -------------------------------------------------------- |
+| `npm run dev`              | アプリを起動する（ファイルを保存すると自動で反映される） |
+| `npm test`                 | テストを実行する                                         |
+| `npm run test:integration` | 本物の DB を使うテスト（手元の DB の中身は消える）       |
+| `npm run lint`             | 書き方の間違いを探す（ESLint）                           |
+| `npm run format`           | コードの見た目を整える（Prettier）                       |
+| `npm run typecheck`        | 型の間違いを探す（TypeScript）                           |
+| `npm run db:seed`          | 手元の DB に練習用のデータを入れる                       |
+| `npx prisma studio`        | DB の中身をブラウザで見る・書き換える                    |
 
-## テストと CI
-
-- **単体テスト**（`__tests__/unit`）: Prisma をモックして、ルートと `src/lib` の動きを確かめます。カバレッジが下がると CI が落ちます。
-- **結合テスト**（`__tests__/integration`）: 本物の Postgres で、入室の保留 → 確定 → 退室の保留 → 確定 → 夜間の一括退室の流れと、アプリが呼ぶ API を通します。
-- **OpenAPI のテスト**（`__tests__/unit/openapi.test.ts`）: 実装したルートと `openapi/openapi.yaml` が一致しているかを確かめます。ルートを足したら仕様も足してください。
-
-PR を作ると GitHub Actions（[.github/workflows/ci.yml](.github/workflows/ci.yml)）が次を実行します。ビルドは Vercel のプレビューで確かめています。
-
-| ジョブ                      | 内容                                                                                               |
-| --------------------------- | -------------------------------------------------------------------------------------------------- |
-| Lint・整形・型チェック      | ESLint・Prettier・tsc                                                                              |
-| テスト・DB マイグレーション | マイグレーションが空の DB に適用できるか・`schema.prisma` と一致しているか、単体テスト、結合テスト |
-
-## ディレクトリ構成
+## フォルダの中身
 
 ```
 src/
-  app/
-    api/            API（route.ts）。1 ファイル = 1 つの URL
-    page.tsx など   Web の画面
-  components/       画面の部品
-  lib/
-    attendance.ts   入退室の記録・保留の確定（中心となる処理）
-    http.ts         API ルートの共通処理（認証・エラー応答など）
-    user.ts         ユーザー情報の変換（パスワードを返さない・画像の URL）
-    discord.ts      Discord への通知
-    storage.ts      プロフィール画像の保存（R2）
-    client/api.ts   Web の画面から API を呼ぶ処理
-  types/api.ts      Web の画面で使う API の型
+  app/                  画面と API（フォルダの場所がそのまま URL になる）
+    page.tsx              /          ホーム（入室・退室ボタン、今いる人の一覧）
+    login/page.tsx        /login     ログイン
+    register/page.tsx     /register  新規登録
+    users/page.tsx        /users     全員の一覧
+    reset-password/       /reset-password  パスワードの再設定
+    api/                  API（route.ts の中の GET・POST などが、その URL の処理）
+      users/[id]/enter/route.ts   POST /api/users/3/enter のように呼ぶ（[id] には数字が入る）
+  components/           画面の部品（ボタン・入力欄・表など）
+  lib/                  画面や API から使う処理
+    attendance.ts         入退室の記録（このアプリの中心）
+    http.ts               API の共通の処理（ログインの確認・エラーの返し方）
+    auth.ts               ログインの仕組み（JWT）
+    discord.ts            Discord への通知
+    storage.ts            プロフィール画像の保存
+    client/api.ts         画面から API を呼ぶ処理
 prisma/
-  schema.prisma     DB の設計
-  migrations/       DB の変更履歴
-openapi/
-  openapi.yaml      API の仕様（api-client の元）
-__tests__/          テスト
-docs/               引き継ぎ資料・運用の手順
+  schema.prisma         DB の設計図
+  migrations/           DB の変更の履歴（自動で作られる）
+openapi/openapi.yaml    API の一覧と使い方（スマホアプリ向け）
+__tests__/              テスト
+docs/                   説明の資料
 ```
 
-API ルートは、[src/lib/http.ts](src/lib/http.ts) の `handleRoute` で包み、「入力の確認 → 認証 → 本処理」の順に書きます。失敗は `HttpError` を投げると、そのステータスのレスポンスになります。
+Next.js では、**フォルダの場所が URL になります**。たとえば `src/app/login/page.tsx` は `/login` の画面、`src/app/api/offices/route.ts` は `/api/offices` の API です。
 
-```ts
-export const POST = handleRoute('入室に失敗しました', async (req: NextRequest, context: IdContext) => {
-  const userId = await parseIdParam(context); // 数値でなければ 400
-  requireSelf(req, userId);                   // トークンがなければ 401、他人なら 403
-  const user = await findUserOrThrow(userId); // いなければ 404
-  ...
-});
+## コードを読む順番
+
+1. `src/app/page.tsx` … ホームの画面。ボタンを押すと何が呼ばれるか
+2. `src/lib/client/api.ts` … 画面から API を呼ぶところ
+3. `src/app/api/users/[id]/enter/route.ts` … API の 1 つ。短いので全体が見える
+4. `src/lib/http.ts` … どの API でも使う共通の処理
+5. `src/lib/attendance.ts` … 入退室の記録の中心
+6. `__tests__/` … 「こう動くはず」をコードで書いたもの。動きを知るのにも役立つ
+
+どのファイルも、関数ごとに「何をするか」をコメントで書いています。
+
+## 変更するときの流れ
+
+```mermaid
+flowchart LR
+  a[ブランチを作る<br/>git switch -c 名前] --> b[コードを変える]
+  b --> c[手元で確かめる<br/>npm test など]
+  c --> d[GitHub に push して<br/>PR を作る]
+  d --> e{CI が通った?}
+  e -- いいえ --> b
+  e -- はい --> f[main にマージ]
+  f --> g[Vercel が自動で<br/>本番に反映]
 ```
 
-## API を変えるとき
+PR を作ると、GitHub Actions（CI）が書き方・型・テストを自動で確かめます（`.github/workflows/ci.yml`）。
+DB の設計（`prisma/schema.prisma`）を変えるときは [build-your-own.md の「DB の設計を変えるとき」](docs/build-your-own.md#db-の設計を変えるとき) を読んでください。
 
-1. `src/app/api` のルートを変える（テストも足す）
-2. `openapi/openapi.yaml` を合わせて直す（`openapi.test.ts` が確かめる）。互換性のない変更なら `info.version` の先頭の数字を上げる
-3. main にマージすると、GitHub Actions が api-client に PR を作る → マージするとタグが付く
-4. アプリ（native）の `package.json` の api-client のタグを書き換える
+## 用語
 
-## DB（スキーマ）を変えるとき
-
-1. `prisma/schema.prisma` を直し、`npx prisma migrate dev --name <内容>` でマイグレーションを作る（ローカルの DB で）
-2. PR を作る（CI が、空の DB に適用できるか・schema と一致しているかを確かめる）
-3. **マージの前に**、本番の DB に適用する: `DATABASE_URL=<本番の値> npx prisma migrate deploy`
-   - 列の追加は先に適用しても、今動いているコードに影響しません。列の削除は、その列を使わないコードを先に本番に出してから適用します
-4. マージする（Vercel が本番に反映）
-
-ビルドではマイグレーションを実行しません。詳しくは [docs/operations.md](docs/operations.md)。
-
-## 環境変数
-
-見本は [.env.example](.env.example) です。本番の値は Vercel の Environment Variables にあります。
-
-| 名前                                                                                                              | 用途                                                             |
-| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `DATABASE_URL`                                                                                                    | DB の接続先                                                      |
-| `JWT_SECRET`                                                                                                      | ログイン用トークンの署名鍵（変えると全員がログインし直しになる） |
-| `CRON_SECRET`                                                                                                     | cron-job.org から呼ぶ API の秘密の値                             |
-| `DISCORD_WEBHOOK_URL_DEFAULT` / `DISCORD_WEBHOOK_URL_<オフィスのコード>`                                          | Discord の通知先                                                 |
-| `R2_PUBLIC_URL` / `R2_S3_ENDPOINT` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_REGION` | プロフィール画像の保存先（Cloudflare R2）                        |
-| `NEXT_PUBLIC_URL` / `SMTP_*`                                                                                      | パスワード再設定メール                                           |
+| 用語               | 意味                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| API                | 画面などから「これをして」とお願いされて、結果を返すプログラム。URL ごとに役割がある |
+| GET / POST         | API へのお願いの種類。GET は「ちょうだい」、POST は「これをして・これを作って」      |
+| JSON               | `{ "name": "山田" }` のような、データをやりとりする書き方                            |
+| DB（データベース） | データを保存しておく場所。表（テーブル）の形で保存する                               |
+| トークン           | ログインした証拠の文字列。API を呼ぶたびに付けて送る                                 |
+| 環境変数           | パスワードなど、コードに書きたくない設定の値。`.env` や Vercel の設定に書く          |
+| マイグレーション   | DB の表の形を変える手順。`prisma/migrations` に履歴が残る                            |
+| Webhook            | 決まった URL に送るだけで、相手のサービス（Discord）にメッセージを出せる仕組み       |
+| CI                 | PR を作るたびに、テストなどを自動で実行する仕組み                                    |

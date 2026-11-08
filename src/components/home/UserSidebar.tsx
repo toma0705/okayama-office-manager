@@ -10,6 +10,7 @@ type Props = {
   onDelete: () => Promise<void> | void;
 };
 
+/** ホームで自分のアイコンを押すと出るメニュー（ログアウト・アカウント削除） */
 export function UserSidebar({ user, onClose, onLogout, onDelete }: Props) {
   if (!user) return null;
   return (
