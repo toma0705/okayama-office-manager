@@ -24,6 +24,7 @@ export class HttpError extends Error {
   }
 }
 
+/** エラーのレスポンス（{ error: メッセージ, detail?: 補足 }）を作る */
 export const jsonError = (status: number, message: string, detail?: string) =>
   NextResponse.json(detail ? { error: message, detail } : { error: message }, { status });
 

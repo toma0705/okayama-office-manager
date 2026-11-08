@@ -3,8 +3,13 @@
  * ログイン用のトークンは localStorage に保存し、API を呼ぶときに付ける。
  */
 
+/** localStorage にトークンを保存するときの名前 */
 const TOKEN_KEY = 'token';
 
+/**
+ * ログイン用のトークンの保存・取り出し・削除。
+ * localStorage はブラウザにデータを残しておける場所で、ページを閉じても消えない。
+ */
 export const authToken = {
   get: () => localStorage.getItem(TOKEN_KEY),
   set: (token: string) => localStorage.setItem(TOKEN_KEY, token),

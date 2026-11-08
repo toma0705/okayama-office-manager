@@ -1,7 +1,21 @@
+/**
+ * プロフィール画像の保存先
+ *
+ * 本番（Vercel）では、サーバーのフォルダにファイルを保存しても消えてしまうので、
+ * Cloudflare R2（画像などのファイルを置いておけるサービス）に保存する。
+ * R2 は Amazon S3 と同じ使い方ができるので、AWS の S3 用のライブラリで操作している。
+ *
+ * - R2_* の環境変数がそろっていれば R2 に保存する
+ * - そろっていなければ、ローカル開発用に public/icons フォルダに保存する
+ *
+ * DB の User.iconFileName には「保存先でのファイル名（例: 1a2b3c.webp）」だけを入れ、
+ * 表示するときに resolveUserIconUrl で URL にする。
+ */
 import fs from 'fs/promises';
 import path from 'path';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
+/** プロフィール画像の容量の上限（200KB） */
 export const MAX_ICON_SIZE_BYTES = 200 * 1024;
 
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
@@ -14,6 +28,7 @@ const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_REGION = process.env.R2_REGION;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 
+// R2 に保存するための設定がそろっているか（そろっていればクライアントを作る）
 const isS3Configured = Boolean(R2_S3_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
 
 let s3Client: S3Client | null = null;
@@ -29,12 +44,21 @@ if (isS3Configured) {
   });
 }
 
+/**
+ * DB に保存しているファイル名を整える（前後の空白・先頭の / ・? 以降を取る）。空なら null。
+ *   ' /abc.webp?v=1 ' → 'abc.webp'
+ */
 export function normalizeStoredUserIconPath(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim().replace(/^\/+/, '').split('?')[0];
   return normalized || null;
 }
 
+/**
+ * DB に保存しているファイル名を、画面に表示できる画像の URL にする。
+ * - R2 を使っていれば  https://<R2 の公開 URL>/abc.webp
+ * - ローカル開発なら     /icons/abc.webp（public/icons の中のファイル）
+ */
 export function resolveUserIconUrl(value: string | null | undefined): string | null {
   const storagePath = normalizeStoredUserIconPath(value);
   if (!storagePath) return null;
@@ -42,6 +66,10 @@ export function resolveUserIconUrl(value: string | null | undefined): string | n
   return `/${LOCAL_ICON_DIR_NAME}/${storagePath}`;
 }
 
+/**
+ * 画像を保存して、保存先のファイル名（DB に入れる値）を返す。
+ * 本番（Vercel）で R2 の設定がないときは、保存しても消えてしまうのでエラーにする。
+ */
 export async function uploadUserIcon(params: {
   buffer: Buffer;
   fileName: string;
@@ -91,6 +119,10 @@ export async function uploadUserIcon(params: {
   };
 }
 
+/**
+ * 画像を削除する（アカウントを削除したとき）。
+ * 失敗してもエラーは投げず、結果（removed: false と error）で返す。
+ */
 export async function removeUserIconByUrl(value: string | null | undefined): Promise<{
   removed: boolean;
   storagePath: string | null;
