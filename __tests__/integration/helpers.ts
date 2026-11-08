@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
+import { ALLOWED_EMAIL_DOMAIN } from '@/lib/constants';
 import { prisma } from '@/lib/prisma';
 
 /** DB を空にし、岡山オフィスとユーザーを 1 人作る */
@@ -14,7 +15,7 @@ export const createUser = (name: string, officeId: number) =>
   prisma.user.create({
     data: {
       name,
-      email: `${name}-${Date.now()}-${Math.random()}@4nonome.com`,
+      email: `${name}-${Date.now()}-${Math.random()}${ALLOWED_EMAIL_DOMAIN}`,
       password: 'hash',
       iconFileName: 'icon.png',
       officeId,

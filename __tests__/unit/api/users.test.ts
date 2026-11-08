@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { GET as usersGet, POST as usersPost } from '@/app/api/users/route';
+import { ALLOWED_EMAIL_DOMAIN } from '@/lib/constants';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
@@ -36,7 +37,7 @@ const getRequest = (query = '') =>
 const registerForm = (overrides: Record<string, string | File | null> = {}) => {
   const fields: Record<string, string | File | null> = {
     name: 'Hanako',
-    email: 'hanako@4nonome.com',
+    email: `hanako${ALLOWED_EMAIL_DOMAIN}`,
     password: 'pw',
     officeCode: 'tokyo',
     icon: new File([new Uint8Array(3)], 'icon.png', { type: 'image/png' }),
@@ -114,7 +115,7 @@ describe('POST /api/users（新規登録）', () => {
     expect(json).toEqual({
       id: 10,
       name: 'Hanako',
-      email: 'hanako@4nonome.com',
+      email: `hanako${ALLOWED_EMAIL_DOMAIN}`,
       iconFileName: 'https://example.r2.dev/saved.png',
       officeId: 2,
       office: tokyo,
@@ -163,7 +164,7 @@ describe('POST /api/users（新規登録）', () => {
   it('400: 団体のドメイン以外のメールアドレス', async () => {
     const res = await usersPost(registerForm({ email: 'mika@example.com' }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toContain('@4nonome.com');
+    expect((await res.json()).error).toContain(ALLOWED_EMAIL_DOMAIN);
   });
 
   it('409: メールアドレスが登録済み', async () => {
