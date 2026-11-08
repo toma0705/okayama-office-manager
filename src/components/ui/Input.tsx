@@ -6,6 +6,7 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   className?: string;
 };
 
+/** 入力欄。属性（value・onChange・placeholder など）は、そのまま HTML の <input> に渡す */
 export function Input({ fullWidth = true, style, className, ...props }: InputProps) {
   return (
     <input

@@ -20,6 +20,7 @@ import { apiFetch, authToken, notify, sendJson } from '@/lib/client/api';
 
 type AttendanceAction = 'enter' | 'exit';
 
+/** ホームの画面（ログイン後に最初に出る画面） */
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
   const [enteredUsers, setEnteredUsers] = useState<User[]>([]);
@@ -29,11 +30,16 @@ const Home = () => {
   const router = useRouter();
   const entered = Boolean(user?.entered);
 
+  /** ログアウト。保存しているトークンを消して、ログイン画面に戻る */
   const logout = useCallback(() => {
     authToken.clear();
     router.push('/login');
   }, [router]);
 
+  /**
+   * 自分の情報と、同じオフィスで入室中の人の一覧を API（/api/users/me）から取ってきて画面に反映する。
+   * トークンがない・期限切れなどで失敗したら、ログイン画面に戻す。
+   */
   const fetchUserAndEnteredUsers = useCallback(async () => {
     if (!authToken.get()) {
       router.push('/login');
@@ -50,6 +56,7 @@ const Home = () => {
     }
   }, [logout, router]);
 
+  // 画面を開いたときに 1 回、データを取ってくる
   useEffect(() => {
     const load = async () => {
       await fetchUserAndEnteredUsers();
@@ -57,6 +64,12 @@ const Home = () => {
     void load();
   }, [fetchUserAndEnteredUsers]);
 
+  /**
+   * 入室・退室のボタンを押したとき。
+   * 1. 押した直後に画面の表示を切り替える（待たずに反応が見えるように）
+   * 2. API で入室・退室を記録し、Discord に通知する
+   * 3. 最新のデータを取り直す（失敗したら表示を元に戻す）
+   */
   const changeAttendance = async (action: AttendanceAction) => {
     if (!user || pendingAction) return;
     const previousUser = user;
@@ -77,6 +90,7 @@ const Home = () => {
     }
   };
 
+  /** アカウント削除。確認ダイアログで OK なら削除して、ログアウトする */
   const deleteAccount = async () => {
     if (!user) return;
     if (!window.confirm('本当にアカウントを削除しますか？この操作は元に戻せません。')) return;
@@ -84,6 +98,7 @@ const Home = () => {
     logout();
   };
 
+  /** メモの保存。自分のメモが変わったときだけ Discord にも流す */
   const saveNote = async (userId: number, note: string) => {
     const response = await sendJson(`/users/${userId}`, 'PATCH', { note });
     if (!response.ok) throw new Error('Failed to save note');

@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   description: 'オフィスの入退室を記録し、今いる人を確認するアプリ',
 };
 
+/** すべてのページに共通の外側（<html> と <body>、フォント）。Next.js がページをこの中に入れる */
 export default function RootLayout({
   children,
 }: Readonly<{

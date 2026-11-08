@@ -29,6 +29,7 @@ export default function RegisterPage() {
   const [officeTouched, setOfficeTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 画面を開いたときに、選択肢にするオフィスの一覧を取ってくる
   useEffect(() => {
     (async () => {
       try {
@@ -43,6 +44,7 @@ export default function RegisterPage() {
     })();
   }, []);
 
+  // 選んだ画像のプレビュー用の一時的な URL（画面を離れたら下の useEffect で片付ける）
   const iconPreviewUrl = useMemo(
     () => (iconFile ? URL.createObjectURL(iconFile) : undefined),
     [iconFile],
@@ -53,6 +55,10 @@ export default function RegisterPage() {
     };
   }, [iconPreviewUrl]);
 
+  /**
+   * 登録ボタン。入力を確かめてから、名前・メール・パスワード・画像・オフィスを
+   * フォームの形（FormData）で /api/users に送る。成功したらログイン画面へ、失敗したら理由を出す。
+   */
   const addUser = useCallback(async () => {
     setErrorMessage('');
     setErrorDetail(null);
@@ -121,6 +127,7 @@ export default function RegisterPage() {
     }
   }, [email, iconFile, name, officeCode, password, router]);
 
+  /** フォームが送信されたとき（Enter キーでも呼ばれる）。ページの再読み込みを止めて addUser を呼ぶ */
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
